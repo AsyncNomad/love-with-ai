@@ -1,6 +1,6 @@
-import type { ParticipantId, RelationshipAxis, RelationshipConfig, Traits } from '@signal/shared'
-import { RELATIONSHIP_AXES, TRAIT_AXES } from '@signal/shared'
-import type { CastParticipant } from '@signal/shared'
+import type { ParticipantId, RelationshipAxis, RelationshipConfig, Traits } from '@heart/shared'
+import { RELATIONSHIP_AXES, TRAIT_AXES } from '@heart/shared'
+import type { CastParticipant } from '@heart/shared'
 import { pairKey, type RunState } from './state'
 
 /** design.md §10.2: 숨은 취향과 상대의 실제 성향으로 정한 궁합(0~100). server 전용. */

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { TimerView } from '@signal/shared'
+import type { TimerView } from '@heart/shared'
 import { clock } from '../lib/format'
 import styles from './TimerChip.module.css'
 

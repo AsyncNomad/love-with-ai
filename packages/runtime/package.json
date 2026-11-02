@@ -1,5 +1,5 @@
 {
-  "name": "@signal/runtime",
+  "name": "@heart/runtime",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,11 +10,11 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@signal/agents": "workspace:*",
-    "@signal/engine": "workspace:*",
-    "@signal/shared": "workspace:*"
+    "@heart/agents": "workspace:*",
+    "@heart/engine": "workspace:*",
+    "@heart/shared": "workspace:*"
   },
   "devDependencies": {
-    "@signal/config": "workspace:*"
+    "@heart/config": "workspace:*"
   }
 }

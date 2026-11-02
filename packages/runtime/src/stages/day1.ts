@@ -1,4 +1,4 @@
-import { ballotsOf, firstImpressionRequests, packSlots, planNightTalks } from '@signal/engine'
+import { ballotsOf, firstImpressionRequests, packSlots, planNightTalks } from '@heart/engine'
 import type { StageHandler } from '../director'
 import { LIVING_ROOM } from '../house'
 import { PD, formatMinutes } from '../pd'

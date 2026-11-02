@@ -1,9 +1,9 @@
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
-import { defaultConfig } from '@signal/config'
-import type { AnyEvent, CastParticipant, EventDraft } from '@signal/shared'
-import { EVENT_SCHEMA_VERSION } from '@signal/shared'
-import { applyEvent, canObserve, castHuman, createRunState, findMentions, type FoldOptions, type RunState } from '@signal/engine'
+import { defaultConfig } from '@heart/config'
+import type { AnyEvent, CastParticipant, EventDraft } from '@heart/shared'
+import { EVENT_SCHEMA_VERSION } from '@heart/shared'
+import { applyEvent, canObserve, castHuman, createRunState, findMentions, type FoldOptions, type RunState } from '@heart/engine'
 import { ObservationView, dialogueTask } from '../src'
 
 const fold: FoldOptions = {

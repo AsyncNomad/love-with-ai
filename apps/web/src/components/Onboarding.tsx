@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { humanProfileSchema, type Command, type Gender } from '@signal/shared'
+import { humanProfileSchema, type Command, type Gender } from '@heart/shared'
 import styles from './Onboarding.module.css'
 
 const INTERESTS = ['영화', '러닝', '음악 감상', '요리', '등산', '전시회', '독서', '캠핑', '보드게임', '여행', '사진', '게임', '맛집 탐방', '베이킹', '뮤지컬', '반려동물', '커피', '테니스']
@@ -42,7 +42,7 @@ export function Onboarding({ send }: Props) {
         <div className={styles.pd}>
           <span className={styles.pdBadge}>PD</span>
           <p>
-            축하합니다! <b>SIGNAL HOUSE</b>에 캐스팅되셨어요.
+            축하합니다! <b>하트 하우스</b>에 캐스팅되셨어요.
             <br />
             3일 동안 함께 지낼 입주자들을 만나기 전에, 간단한 정보를 알려 주세요.
           </p>

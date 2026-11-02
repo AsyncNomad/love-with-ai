@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { ParticipantId, RelationshipAxis } from '@signal/shared'
+import type { ParticipantId, RelationshipAxis } from '@heart/shared'
 import { ObservationView } from '../observation'
 import { COMMON_RULES, joinSections, personaSection } from '../prompts'
 import type { TaskSpec } from '../task'

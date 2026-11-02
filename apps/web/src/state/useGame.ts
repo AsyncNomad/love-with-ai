@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
-import { applyPatch, emptyHumanView, type Command, type HumanView, type ViewPatch } from '@signal/shared'
+import { applyPatch, emptyHumanView, type Command, type HumanView, type ViewPatch } from '@heart/shared'
 import { GameConnection, type CommandAck, type ConnectionStatus } from '../net/connection'
 
 type Action = { type: 'snapshot'; view: HumanView } | { type: 'patches'; patches: ViewPatch[] }

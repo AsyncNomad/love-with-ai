@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { Command, HumanView, PromptView } from '@signal/shared'
+import type { Command, HumanView, PromptView } from '@heart/shared'
 import { Avatar } from './Avatar'
 import { Modal } from './Modal'
 import styles from './PromptSheet.module.css'

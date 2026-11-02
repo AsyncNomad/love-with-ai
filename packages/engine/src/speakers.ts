@@ -1,4 +1,4 @@
-import type { ParticipantId, SchedulerWeights } from '@signal/shared'
+import type { ParticipantId, SchedulerWeights } from '@heart/shared'
 import type { Rng } from './rng'
 
 /** 발언 후보 하나의 특징(design.md §11.1). 값은 호출자가 상태에서 계산해 넣는다. */

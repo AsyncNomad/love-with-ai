@@ -1,6 +1,6 @@
 import { z } from 'zod'
-import type { GameConfig, ParticipantId, SamplingConfig } from '@signal/shared'
-import type { RunState } from '@signal/engine'
+import type { GameConfig, ParticipantId, SamplingConfig } from '@heart/shared'
+import type { RunState } from '@heart/engine'
 import { LlmUnavailableError, type LlmPort } from './llm-port'
 import type { ObservationView } from './observation'
 

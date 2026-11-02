@@ -1,4 +1,4 @@
-import type { CastingView } from '@signal/shared'
+import type { CastingView } from '@heart/shared'
 import styles from './StatusScreens.module.css'
 
 export function CastingScreen({ casting }: { casting: CastingView | null }) {

@@ -1,5 +1,5 @@
-import type { ValidationConfig } from '@signal/shared'
-import { containsName, givenName } from '@signal/engine'
+import type { ValidationConfig } from '@heart/shared'
+import { containsName, givenName } from '@heart/engine'
 
 /** design.md §7.5: 규칙 기반 출력 검증. 의미 판정은 하지 않는다(D8). */
 

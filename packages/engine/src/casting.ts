@@ -1,5 +1,5 @@
-import type { CastParticipant, CastingPools, Gender, HumanProfile, OccupationEntry, Traits } from '@signal/shared'
-import { TRAIT_AXES, oppositeGender } from '@signal/shared'
+import type { CastParticipant, CastingPools, Gender, HumanProfile, OccupationEntry, Traits } from '@heart/shared'
+import { TRAIT_AXES, oppositeGender } from '@heart/shared'
 import { givenName } from './aliases'
 import type { Rng } from './rng'
 

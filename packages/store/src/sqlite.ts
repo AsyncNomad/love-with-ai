@@ -1,8 +1,8 @@
 import Database from 'better-sqlite3'
 import { mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
-import type { AnyEvent } from '@signal/shared'
-import { EVENT_SCHEMA_VERSION, isEventType, parseEventPayload, visibilitySchema } from '@signal/shared'
+import type { AnyEvent } from '@heart/shared'
+import { EVENT_SCHEMA_VERSION, isEventType, parseEventPayload, visibilitySchema } from '@heart/shared'
 
 export const STORE_SCHEMA_VERSION = 1
 

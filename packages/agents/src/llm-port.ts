@@ -1,4 +1,4 @@
-import type { SamplingConfig } from '@signal/shared'
+import type { SamplingConfig } from '@heart/shared'
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant'

@@ -1,6 +1,6 @@
-import type { AnyEvent, EventDraft } from '@signal/shared'
-import { EVENT_SCHEMA_VERSION } from '@signal/shared'
-import { defaultConfig } from '@signal/config'
+import type { AnyEvent, EventDraft } from '@heart/shared'
+import { EVENT_SCHEMA_VERSION } from '@heart/shared'
+import { defaultConfig } from '@heart/config'
 import { applyEvent, createRunState, findMentions, type FoldOptions, type RunState } from '../src'
 
 export const foldOptions: FoldOptions = {

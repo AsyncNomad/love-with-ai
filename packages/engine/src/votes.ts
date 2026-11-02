@@ -1,4 +1,4 @@
-import type { ParticipantId } from '@signal/shared'
+import type { ParticipantId } from '@heart/shared'
 import type { RunState } from './state'
 
 /**

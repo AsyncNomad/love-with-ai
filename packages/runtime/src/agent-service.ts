@@ -1,4 +1,4 @@
-import type { AgentRunner, DialogueInput, TaskResult, TaskSpec } from '@signal/agents'
+import type { AgentRunner, DialogueInput, TaskResult, TaskSpec } from '@heart/agents'
 import {
   LlmUnavailableError,
   dialogueTask,
@@ -10,9 +10,9 @@ import {
   relationshipEvalTask,
   selfIntroTask,
   voteTask,
-} from '@signal/agents'
-import type { CastParticipant, ParticipantId, PersonaFlavor, VoteKind } from '@signal/shared'
-import { knownProfile, pairKey, scaleDeltas, type Rng } from '@signal/engine'
+} from '@heart/agents'
+import type { CastParticipant, ParticipantId, PersonaFlavor, VoteKind } from '@heart/shared'
+import { knownProfile, pairKey, scaleDeltas, type Rng } from '@heart/engine'
 import { Priority, type GpuQueue } from './gpu-queue'
 import type { PauseController } from './pause'
 import type { GameSession } from './session'

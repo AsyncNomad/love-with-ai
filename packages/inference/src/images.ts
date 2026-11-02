@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { deflateSync } from 'node:zlib'
-import type { ImagePort, ImageRequest } from '@signal/agents'
+import type { ImagePort, ImageRequest } from '@heart/agents'
 
 
 export interface SdCppOptions {
@@ -24,7 +24,7 @@ export class SdCppImage implements ImagePort {
   constructor(private readonly opts: SdCppOptions) {}
 
   async generate(req: ImageRequest): Promise<Uint8Array> {
-    const dir = await mkdtemp(join(tmpdir(), 'signal-sd-'))
+    const dir = await mkdtemp(join(tmpdir(), 'heart-sd-'))
     const out = join(dir, 'out.png')
     const args = [
       '--diffusion-model', this.opts.diffusionModel,

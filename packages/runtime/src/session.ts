@@ -1,6 +1,6 @@
-import type { AnyEvent, EventDraft, GameConfig } from '@signal/shared'
-import { EVENT_SCHEMA_VERSION, parseEventPayload } from '@signal/shared'
-import { applyEvent, createRunState, findMentions, type FoldOptions, type RunState } from '@signal/engine'
+import type { AnyEvent, EventDraft, GameConfig } from '@heart/shared'
+import { EVENT_SCHEMA_VERSION, parseEventPayload } from '@heart/shared'
+import { applyEvent, createRunState, findMentions, type FoldOptions, type RunState } from '@heart/engine'
 import type { RunSink } from './ports'
 
 export function foldOptionsFor(config: GameConfig): FoldOptions {

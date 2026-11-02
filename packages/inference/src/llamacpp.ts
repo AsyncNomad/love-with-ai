@@ -1,4 +1,4 @@
-import { LlmUnavailableError, type LlmPort, type LlmRequest, type LlmResponse } from '@signal/agents'
+import { LlmUnavailableError, type LlmPort, type LlmRequest, type LlmResponse } from '@heart/agents'
 
 export interface LlamaCppOptions {
   baseUrl: string

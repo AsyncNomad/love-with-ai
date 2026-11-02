@@ -1,5 +1,5 @@
-import type { FakeResponder, LlmPort, LlmRequest, LlmResponse } from '@signal/agents'
-import type { Rng } from '@signal/engine'
+import type { FakeResponder, LlmPort, LlmRequest, LlmResponse } from '@heart/agents'
+import type { Rng } from '@heart/engine'
 
 export type Sleep = (ms: number, signal?: AbortSignal) => Promise<void>
 

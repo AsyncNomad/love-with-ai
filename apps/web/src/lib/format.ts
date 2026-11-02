@@ -1,4 +1,4 @@
-import type { HumanView, ParticipantView, RoomView } from '@signal/shared'
+import type { HumanView, ParticipantView, RoomView } from '@heart/shared'
 
 export function heart(p: ParticipantView | undefined): string {
   if (!p) return ''

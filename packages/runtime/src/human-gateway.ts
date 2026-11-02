@@ -1,5 +1,5 @@
-import type { Command, ParticipantId, PromptView } from '@signal/shared'
-import { validateBallot, type EligibilityRule } from '@signal/engine'
+import type { Command, ParticipantId, PromptView } from '@heart/shared'
+import { validateBallot, type EligibilityRule } from '@heart/engine'
 import type { House } from './house'
 import type { HumanViewProjector } from './human-view'
 import type { PauseController } from './pause'

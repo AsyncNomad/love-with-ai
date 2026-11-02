@@ -1,5 +1,5 @@
-import type { CastParticipant, ImageConfig } from '@signal/shared'
-import { castHuman, castParticipants, seedInt } from '@signal/engine'
+import type { CastParticipant, ImageConfig } from '@heart/shared'
+import { castHuman, castParticipants, seedInt } from '@heart/engine'
 import type { StageContext, StageHandler } from '../director'
 
 /** 프로필 사진 프롬프트(design.md §8.3-2). LLM 없이 템플릿으로 조립한다. 항상 성인 나이를 넣는다. */

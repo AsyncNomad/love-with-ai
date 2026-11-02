@@ -6,10 +6,10 @@ import fastifyStatic from '@fastify/static'
 import fastifyWebsocket from '@fastify/websocket'
 import Fastify from 'fastify'
 import type { WebSocket } from 'ws'
-import { defaultConfig, withTimeScale } from '@signal/config'
-import { Game, realTimerHost } from '@signal/runtime'
-import { clientMessageSchema, emptyHumanView, type ServerMessage, type ViewPatch } from '@signal/shared'
-import { SqliteRunStore } from '@signal/store'
+import { defaultConfig, withTimeScale } from '@heart/config'
+import { Game, realTimerHost } from '@heart/runtime'
+import { clientMessageSchema, emptyHumanView, type ServerMessage, type ViewPatch } from '@heart/shared'
+import { SqliteRunStore } from '@heart/store'
 import { FsAvatarStore, buildInference } from './compose'
 import { readEnv } from './env'
 
@@ -143,4 +143,4 @@ process.on('SIGINT', () => void shutdown())
 process.on('SIGTERM', () => void shutdown())
 
 await app.listen({ port: env.port, host: env.host })
-app.log.info(`SIGNAL HOUSE server on http://${env.host}:${env.port} (llm=${env.llmMode}, image=${env.imageMode}, timeScale=${env.timeScale})`)
+app.log.info(`Heart House server on http://${env.host}:${env.port} (llm=${env.llmMode}, image=${env.imageMode}, timeScale=${env.timeScale})`)

@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
-import type { HumanView, MessageView, RoomView } from '@signal/shared'
+import type { HumanView, MessageView, RoomView } from '@heart/shared'
 import { roomDisplay } from '../lib/format'
 import { Avatar } from './Avatar'
 import { TimerChip } from './TimerChip'

@@ -1,4 +1,4 @@
-import type { HumanView, RoomView } from '@signal/shared'
+import type { HumanView, RoomView } from '@heart/shared'
 import { roomDisplay, simTimeLabel } from '../lib/format'
 import { AvatarStack } from './Avatar'
 import styles from './Sidebar.module.css'
@@ -20,7 +20,7 @@ export function Sidebar({ view, rooms, selectedId, unread, onSelect }: Props) {
             <path d="M32 46s-14-8.6-14-18a7.5 7.5 0 0 1 14-3.7A7.5 7.5 0 0 1 46 28c0 9.4-14 18-14 18z" fill="#fff" />
           </svg>
         </div>
-        <div className={styles.brandName}>SIGNAL HOUSE</div>
+        <div className={styles.brandName}>하트 하우스</div>
         {view.stage && (
           <div className={styles.stage}>
             {simTimeLabel(view.stage.simTime)} · {view.stage.label}

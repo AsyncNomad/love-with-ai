@@ -17,10 +17,13 @@
 ```bash
 nvm use            # Node 24 (.nvmrc). 22 이상이면 된다
 corepack enable pnpm
-pnpm install
-pnpm dev           # 서버 127.0.0.1:8787 + 웹 http://127.0.0.1:5173
-TIME_SCALE=0.1 pnpm dev   # 단계 시간을 10분의 1로 줄여서 빠르게 확인
+pnpm install       # 설치는 pnpm (workspace:* 의존성 때문)
+npm run dev        # 개발: 서버 127.0.0.1:8787 + Vite 웹 http://127.0.0.1:5173 (코드 고치면 바로 반영)
+npm run start      # 실행: 웹을 프로덕션 빌드한 뒤 서버가 함께 서빙 → http://127.0.0.1:8787
+TIME_SCALE=0.1 npm run dev   # 단계 시간을 10분의 1로 줄여서 빠르게 확인
 ```
+
+`npm run`과 `pnpm`은 스크립트 실행기로서는 같다. 스크립트가 내부에서 pnpm을 부르므로 pnpm(corepack)은 있어야 한다.
 
 기본은 GPU 없이 도는 fake 모드다(`LLM_MODE=fake`, `IMAGE_MODE=fake`). 실제 모델 모드는 아래 "Phase 1에서 할 일"을 본다.
 
@@ -40,7 +43,7 @@ TIME_SCALE=0.1 pnpm dev   # 단계 시간을 10분의 1로 줄여서 빠르게 �
 | `pnpm check` | 타입 검사(TS 6 strict), ESLint, dependency-cruiser(계층 규칙), vitest | 통과. 테스트 48개 |
 | `pnpm sim --seeds 1000` | FakeLlm + 가상 시계로 1일차 전체를 끝까지 진행하고 매 판 audit. 사용자 성별을 번갈아 바꾼다 | 1000/1000 통과 |
 | `pnpm audit:run runs/<run_id>` | 실제 플레이한 회차의 deliveries·출력을 가시성 규칙과 대조 | — |
-| `pnpm --filter @signal/server cli doctor` | Node 버전, 모드별 바이너리·모델 경로, llama-server 응답 확인 | — |
+| `pnpm --filter @heart/server cli doctor` | Node 버전, 모드별 바이너리·모델 경로, llama-server 응답 확인 | — |
 
 테스트 구성:
 - `engine`: 캐스팅 불변식(fast-check 200회), 가시성, 투표 검증, 방 배정 성질(500회), 발언자 선택, 관계 환산

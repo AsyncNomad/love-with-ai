@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import type { HumanView, RoomView } from '@signal/shared'
+import type { HumanView, RoomView } from '@heart/shared'
 import { ChatPane } from './components/ChatPane'
 import { Onboarding } from './components/Onboarding'
 import { ProfileCard } from './components/ProfileCard'

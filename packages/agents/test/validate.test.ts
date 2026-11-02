@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { defaultConfig } from '@signal/config'
+import { defaultConfig } from '@heart/config'
 import { checkDialogue, fitLength, normalizeUtterance, similarity } from '../src'
 
 const cfg = defaultConfig.validation

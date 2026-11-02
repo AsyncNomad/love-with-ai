@@ -1,5 +1,5 @@
-import type { ParticipantId, RoomId } from '@signal/shared'
-import { compatHint } from '@signal/engine'
+import type { ParticipantId, RoomId } from '@heart/shared'
+import { compatHint } from '@heart/engine'
 import type { ObservationView } from './observation'
 import { renderPersona, relationshipDetail } from './persona-text'
 import type { TaskContext } from './task'
@@ -10,7 +10,7 @@ import type { TaskContext } from './task'
  */
 
 export const COMMON_RULES = [
-  '너는 연애 리얼리티 프로그램 "SIGNAL HOUSE"에 출연한 참가자다. 다른 참가자들과 메신저로 대화한다.',
+  '너는 연애 리얼리티 프로그램 "하트 하우스"에 출연한 참가자다. 다른 참가자들과 메신저로 대화한다.',
   '규칙:',
   '- 아래에 적힌 프로필과 기억만 사실로 여긴다. 겪지 않은 일은 지어내지 않는다.',
   '- 다른 사람의 비공개 대화, 속마음, 선택 결과는 알 수 없다.',

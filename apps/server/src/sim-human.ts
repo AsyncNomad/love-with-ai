@@ -1,6 +1,6 @@
-import type { HumanView, PromptView } from '@signal/shared'
-import type { Rng } from '@signal/engine'
-import type { Game, TimerHost } from '@signal/runtime'
+import type { HumanView, PromptView } from '@heart/shared'
+import type { Rng } from '@heart/engine'
+import type { Game, TimerHost } from '@heart/runtime'
 
 const LINES = ['안녕하세요!', '다들 뭐 좋아하세요?', 'ㅋㅋㅋ 그거 저도요', '오늘 분위기 좋네요', '혹시 운동 하세요?', '저는 영화 보는 거 좋아해요']
 

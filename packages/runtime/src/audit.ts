@@ -1,6 +1,6 @@
-import type { DeliveryRecord } from '@signal/agents'
-import type { AnyEvent, GameConfig } from '@signal/shared'
-import { applyEvent, canObserve, containsName, createRunState, knownNameIds, type RunState } from '@signal/engine'
+import type { DeliveryRecord } from '@heart/agents'
+import type { AnyEvent, GameConfig } from '@heart/shared'
+import { applyEvent, canObserve, containsName, createRunState, knownNameIds, type RunState } from '@heart/engine'
 import { foldOptionsFor } from './session'
 
 export interface Violation {

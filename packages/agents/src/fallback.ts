@@ -1,4 +1,4 @@
-import type { CastParticipant, PersonaFlavor } from '@signal/shared'
+import type { CastParticipant, PersonaFlavor } from '@heart/shared'
 
 /** 인격 생성이 거듭 실패했을 때 쓰는 템플릿(design.md §8.1-7). 게임 진행을 막지 않는다. */
 export function fallbackFlavor(cast: CastParticipant): PersonaFlavor {

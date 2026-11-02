@@ -1,4 +1,4 @@
-import type { ParticipantId } from '@signal/shared'
+import type { ParticipantId } from '@heart/shared'
 
 const HANGUL_START = 0xac00
 const HANGUL_END = 0xd7a3

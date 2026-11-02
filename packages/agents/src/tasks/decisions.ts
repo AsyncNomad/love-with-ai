@@ -1,6 +1,6 @@
 import { z } from 'zod'
-import type { ParticipantId, VoteKind } from '@signal/shared'
-import { compatHint } from '@signal/engine'
+import type { ParticipantId, VoteKind } from '@heart/shared'
+import { compatHint } from '@heart/engine'
 import { ObservationView } from '../observation'
 import { relationshipDetail } from '../persona-text'
 import { COMMON_RULES, joinSections, personaSection } from '../prompts'

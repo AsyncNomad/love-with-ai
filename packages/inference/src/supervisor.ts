@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process'
-import type { GpuKind, GpuLease } from '@signal/agents'
+import type { GpuKind, GpuLease } from '@heart/agents'
 
 
 /** 프로세스를 관리하지 않는 모드(FakeLlm, 외부 llama-server). 상호 배제만 한다. */

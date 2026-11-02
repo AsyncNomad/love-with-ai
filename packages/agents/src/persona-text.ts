@@ -1,6 +1,6 @@
-import type { CastParticipant, PersonaFlavor, RelationshipConfig } from '@signal/shared'
-import { TRAIT_AXES } from '@signal/shared'
-import { traitWord, type CompatHint, type RelationshipState } from '@signal/engine'
+import type { CastParticipant, PersonaFlavor, RelationshipConfig } from '@heart/shared'
+import { TRAIT_AXES } from '@heart/shared'
+import { traitWord, type CompatHint, type RelationshipState } from '@heart/engine'
 
 /** 숫자 성향을 자연어로 바꾼 인물 소개(D12). 본인 프롬프트에만 들어간다. */
 export function renderPersona(cast: CastParticipant, flavor: PersonaFlavor | null): string {

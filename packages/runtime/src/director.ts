@@ -1,6 +1,6 @@
-import type { GameConfig, StageId } from '@signal/shared'
-import { STAGE_META } from '@signal/shared'
-import type { SlotPlan, Rng } from '@signal/engine'
+import type { GameConfig, StageId } from '@heart/shared'
+import { STAGE_META } from '@heart/shared'
+import type { SlotPlan, Rng } from '@heart/engine'
 import type { AgentService } from './agent-service'
 import type { ChatScene} from './chat-scene';
 import { type SceneOptions } from './chat-scene'
@@ -12,7 +12,7 @@ import { PD } from './pd'
 import type { GameSession } from './session'
 import type { Countdown, GameClock, TimerHost } from './timers'
 import type { AvatarStore } from './ports'
-import type { GpuLease, ImagePort } from '@signal/agents'
+import type { GpuLease, ImagePort } from '@heart/agents'
 
 /** 단계 사이에 넘겨야 하는 런타임 객체(이벤트로 남길 필요가 없는 것). */
 export interface SharedState {

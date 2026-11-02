@@ -1,5 +1,5 @@
 {
-  "name": "@signal/server",
+  "name": "@heart/server",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -12,13 +12,13 @@
   "dependencies": {
     "@fastify/static": "^10.1.8",
     "@fastify/websocket": "^11.3.6",
-    "@signal/agents": "workspace:*",
-    "@signal/config": "workspace:*",
-    "@signal/engine": "workspace:*",
-    "@signal/inference": "workspace:*",
-    "@signal/runtime": "workspace:*",
-    "@signal/shared": "workspace:*",
-    "@signal/store": "workspace:*",
+    "@heart/agents": "workspace:*",
+    "@heart/config": "workspace:*",
+    "@heart/engine": "workspace:*",
+    "@heart/inference": "workspace:*",
+    "@heart/runtime": "workspace:*",
+    "@heart/shared": "workspace:*",
+    "@heart/store": "workspace:*",
     "fastify": "^5.12.7",
     "ws": "^8.22.1"
   },

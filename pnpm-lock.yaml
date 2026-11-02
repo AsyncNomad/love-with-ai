@@ -208,25 +208,25 @@ importers:
       '@fastify/websocket':
         specifier: ^11.3.6
         version: 11.3.6
-      '@signal/agents':
+      '@heart/agents':
         specifier: workspace:*
         version: link:../../packages/agents
-      '@signal/config':
+      '@heart/config':
         specifier: workspace:*
         version: link:../../packages/config
-      '@signal/engine':
+      '@heart/engine':
         specifier: workspace:*
         version: link:../../packages/engine
-      '@signal/inference':
+      '@heart/inference':
         specifier: workspace:*
         version: link:../../packages/inference
-      '@signal/runtime':
+      '@heart/runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
-      '@signal/shared':
+      '@heart/shared':
         specifier: workspace:*
         version: link:../../packages/shared
-      '@signal/store':
+      '@heart/store':
         specifier: workspace:*
         version: link:../../packages/store
       fastify:
@@ -242,7 +242,7 @@ importers:
 
   apps/web:
     dependencies:
-      '@signal/shared':
+      '@heart/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       react:
@@ -267,61 +267,61 @@ importers:
 
   packages/agents:
     dependencies:
-      '@signal/engine':
+      '@heart/engine':
         specifier: workspace:*
         version: link:../engine
-      '@signal/shared':
+      '@heart/shared':
         specifier: workspace:*
         version: link:../shared
       zod:
         specifier: ^4.6.7
         version: 4.6.7
     devDependencies:
-      '@signal/config':
+      '@heart/config':
         specifier: workspace:*
         version: link:../config
 
   packages/config:
     dependencies:
-      '@signal/shared':
+      '@heart/shared':
         specifier: workspace:*
         version: link:../shared
 
   packages/engine:
     dependencies:
-      '@signal/shared':
+      '@heart/shared':
         specifier: workspace:*
         version: link:../shared
     devDependencies:
-      '@signal/config':
+      '@heart/config':
         specifier: workspace:*
         version: link:../config
 
   packages/inference:
     dependencies:
-      '@signal/agents':
+      '@heart/agents':
         specifier: workspace:*
         version: link:../agents
-      '@signal/engine':
+      '@heart/engine':
         specifier: workspace:*
         version: link:../engine
-      '@signal/shared':
+      '@heart/shared':
         specifier: workspace:*
         version: link:../shared
 
   packages/runtime:
     dependencies:
-      '@signal/agents':
+      '@heart/agents':
         specifier: workspace:*
         version: link:../agents
-      '@signal/engine':
+      '@heart/engine':
         specifier: workspace:*
         version: link:../engine
-      '@signal/shared':
+      '@heart/shared':
         specifier: workspace:*
         version: link:../shared
     devDependencies:
-      '@signal/config':
+      '@heart/config':
         specifier: workspace:*
         version: link:../config
 
@@ -333,7 +333,7 @@ importers:
 
   packages/store:
     dependencies:
-      '@signal/shared':
+      '@heart/shared':
         specifier: workspace:*
         version: link:../shared
       better-sqlite3:

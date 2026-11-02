@@ -1,4 +1,4 @@
-import type { GpuLease } from '@signal/agents'
+import type { GpuLease } from '@heart/agents'
 
 /** design.md §7.6 우선순위. 숫자가 작을수록 먼저 처리한다. */
 export const Priority = {

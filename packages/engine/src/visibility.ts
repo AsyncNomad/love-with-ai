@@ -1,5 +1,5 @@
-import type { AnyEvent, ParticipantId } from '@signal/shared'
-import { eventRoomId } from '@signal/shared'
+import type { AnyEvent, ParticipantId } from '@heart/shared'
+import { eventRoomId } from '@heart/shared'
 import type { RunState } from './state'
 
 /**

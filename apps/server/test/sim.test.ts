@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { defaultConfig } from '@signal/config'
-import { applyEvent, canObserve, createRunState } from '@signal/engine'
-import { foldOptionsFor } from '@signal/runtime'
+import { defaultConfig } from '@heart/config'
+import { applyEvent, canObserve, createRunState } from '@heart/engine'
+import { foldOptionsFor } from '@heart/runtime'
 import { DEFAULT_SIM_HUMAN, runSimulation } from '../src/sim'
 
 describe('headless day-1 simulation (FakeLlm, virtual clock)', () => {

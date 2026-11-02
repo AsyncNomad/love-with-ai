@@ -1,4 +1,4 @@
-import type { ParticipantView } from '@signal/shared'
+import type { ParticipantView } from '@heart/shared'
 import { initials } from '../lib/format'
 import styles from './Avatar.module.css'
 

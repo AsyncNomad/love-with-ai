@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { GpuLease } from '@signal/agents'
+import type { GpuLease } from '@heart/agents'
 import { GameClock, GpuQueue, VirtualTimerHost } from '../src'
 
 const lease: GpuLease = { use: (_kind, fn) => fn() }

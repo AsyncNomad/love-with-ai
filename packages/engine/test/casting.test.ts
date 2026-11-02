@@ -1,7 +1,7 @@
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
-import { defaultConfig } from '@signal/config'
-import type { HumanProfile } from '@signal/shared'
+import { defaultConfig } from '@heart/config'
+import type { HumanProfile } from '@heart/shared'
 import { castParticipants, createRng, diverseTraits, givenName, traitDistance } from '../src'
 
 const human = (over: Partial<HumanProfile> = {}): HumanProfile => ({

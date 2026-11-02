@@ -1,5 +1,5 @@
 {
-  "name": "@signal/config",
+  "name": "@heart/config",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,6 +10,6 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@signal/shared": "workspace:*"
+    "@heart/shared": "workspace:*"
   }
 }

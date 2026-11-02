@@ -1,5 +1,5 @@
-import type { ParticipantId, RoomId, RoomKind } from '@signal/shared'
-import { currentMembers, mustParticipant } from '@signal/engine'
+import type { ParticipantId, RoomId, RoomKind } from '@heart/shared'
+import { currentMembers, mustParticipant } from '@heart/engine'
 import type { GameSession } from './session'
 
 export const LIVING_ROOM: RoomId = 'living'

@@ -1,4 +1,4 @@
-import type { AnyEvent, GameConfig, ParticipantId, RoomId, SpeechLevel } from '@signal/shared'
+import type { AnyEvent, GameConfig, ParticipantId, RoomId, SpeechLevel } from '@heart/shared'
 import {
   canObserve,
   currentMembers,
@@ -11,7 +11,7 @@ import {
   type ParticipantRecord,
   type RelationshipState,
   type RunState,
-} from '@signal/engine'
+} from '@heart/engine'
 
 export interface ObservedMessage {
   seq: number

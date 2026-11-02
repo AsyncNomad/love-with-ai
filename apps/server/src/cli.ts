@@ -1,9 +1,9 @@
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
-import { defaultConfig } from '@signal/config'
-import { LlamaCppLlm } from '@signal/inference'
-import { auditRun } from '@signal/runtime'
-import { SqliteRunStore } from '@signal/store'
+import { defaultConfig } from '@heart/config'
+import { LlamaCppLlm } from '@heart/inference'
+import { auditRun } from '@heart/runtime'
+import { SqliteRunStore } from '@heart/store'
 import { readEnv } from './env'
 import { DEFAULT_SIM_HUMAN, runSimulation } from './sim'
 

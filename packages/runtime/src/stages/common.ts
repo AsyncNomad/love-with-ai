@@ -1,5 +1,5 @@
-import type { ParticipantId, StageId, VoteKind } from '@signal/shared'
-import { ballotsOf, inviteCandidates, oppositeGenderRule, type TalkRequest } from '@signal/engine'
+import type { ParticipantId, StageId, VoteKind } from '@heart/shared'
+import { ballotsOf, inviteCandidates, oppositeGenderRule, type TalkRequest } from '@heart/engine'
 import type { ChatScene } from '../chat-scene'
 import type { StageContext } from '../director'
 import { LIVING_ROOM } from '../house'

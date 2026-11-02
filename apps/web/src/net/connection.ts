@@ -1,4 +1,4 @@
-import type { ClientMessage, Command, HumanView, ServerMessage, ViewPatch } from '@signal/shared'
+import type { ClientMessage, Command, HumanView, ServerMessage, ViewPatch } from '@heart/shared'
 
 export type ConnectionStatus = 'connecting' | 'open' | 'closed'
 

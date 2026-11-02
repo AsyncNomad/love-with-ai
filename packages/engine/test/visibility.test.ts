@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { CastParticipant } from '@signal/shared'
+import type { CastParticipant } from '@heart/shared'
 import { canObserve, castHuman, knownNameIds, knownProfile } from '../src'
 import { StateBuilder } from './helpers'
 

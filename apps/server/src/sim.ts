@@ -1,9 +1,9 @@
-import { fakeResponders } from '@signal/agents'
-import { defaultConfig } from '@signal/config'
-import { createRng } from '@signal/engine'
-import { FakeImage, FakeLlm, PassthroughLease } from '@signal/inference'
-import { Game, MemoryAvatarStore, MemorySink, VirtualTimerHost, auditRun, type TimerHost, type Violation } from '@signal/runtime'
-import type { GameConfig, HumanProfile } from '@signal/shared'
+import { fakeResponders } from '@heart/agents'
+import { defaultConfig } from '@heart/config'
+import { createRng } from '@heart/engine'
+import { FakeImage, FakeLlm, PassthroughLease } from '@heart/inference'
+import { Game, MemoryAvatarStore, MemorySink, VirtualTimerHost, auditRun, type TimerHost, type Violation } from '@heart/runtime'
+import type { GameConfig, HumanProfile } from '@heart/shared'
 import { SimHuman } from './sim-human'
 
 export interface SimOptions {

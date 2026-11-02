@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { ParticipantId, RoomId } from '@signal/shared'
+import type { ParticipantId, RoomId } from '@heart/shared'
 import { ObservationView } from '../observation'
 import { COMMON_RULES, conversationSection, joinSections, memorySection, peopleSection, personaSection, situationSection } from '../prompts'
 import type { TaskSpec } from '../task'

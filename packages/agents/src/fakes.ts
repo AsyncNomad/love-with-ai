@@ -1,4 +1,4 @@
-import { givenName, type Rng } from '@signal/engine'
+import { givenName, type Rng } from '@heart/engine'
 import type { LlmRequest } from './llm-port'
 
 /**

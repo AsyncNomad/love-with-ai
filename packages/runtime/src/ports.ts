@@ -1,5 +1,5 @@
-import type { CallRecord, DeliveryRecord } from '@signal/agents'
-import type { AnyEvent } from '@signal/shared'
+import type { CallRecord, DeliveryRecord } from '@heart/agents'
+import type { AnyEvent } from '@heart/shared'
 
 /** 회차 기록 저장소. SqliteRunStore가 구조적으로 만족한다. */
 export interface RunSink {

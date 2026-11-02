@@ -1,9 +1,9 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { fakeResponders, type GpuLease, type ImagePort, type LlmPort } from '@signal/agents'
-import { createRng } from '@signal/engine'
-import { FakeImage, FakeLlm, LlamaCppLlm, LlamaServerProcess, PassthroughLease, ProcessGpuLease, SdCppImage } from '@signal/inference'
-import type { AvatarStore } from '@signal/runtime'
+import { fakeResponders, type GpuLease, type ImagePort, type LlmPort } from '@heart/agents'
+import { createRng } from '@heart/engine'
+import { FakeImage, FakeLlm, LlamaCppLlm, LlamaServerProcess, PassthroughLease, ProcessGpuLease, SdCppImage } from '@heart/inference'
+import type { AvatarStore } from '@heart/runtime'
 import type { ServerEnv } from './env'
 
 export interface Inference {

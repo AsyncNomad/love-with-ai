@@ -1,4 +1,4 @@
-import type { CastingPools } from '@signal/shared'
+import type { CastingPools } from '@heart/shared'
 
 /**
  * 캐스팅 풀(design.md D11). 이름 풀에서는 일상 단어와 겹치는 이름(하나, 다온 등)을 뺀다.

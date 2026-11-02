@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { defaultConfig } from '@signal/config'
-import type { CastParticipant } from '@signal/shared'
+import { defaultConfig } from '@heart/config'
+import type { CastParticipant } from '@heart/shared'
 import {
   aliasesFor,
   castHuman,

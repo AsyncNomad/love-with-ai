@@ -1,4 +1,4 @@
-import type { ParticipantView } from '@signal/shared'
+import type { ParticipantView } from '@heart/shared'
 import { heart } from '../lib/format'
 import { Avatar } from './Avatar'
 import { Modal } from './Modal'

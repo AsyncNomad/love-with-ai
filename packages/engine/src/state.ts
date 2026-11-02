@@ -11,8 +11,8 @@ import type {
   SpeechLevel,
   StageId,
   VoteKind,
-} from '@signal/shared'
-import { STAGE_META } from '@signal/shared'
+} from '@heart/shared'
+import { STAGE_META } from '@heart/shared'
 
 export interface Membership {
   participantId: ParticipantId

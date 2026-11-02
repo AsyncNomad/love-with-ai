@@ -1,4 +1,4 @@
-import type { GameConfig } from '@signal/shared'
+import type { GameConfig } from '@heart/shared'
 import { castingPools } from './pools'
 
 export { castingPools }

@@ -1,7 +1,7 @@
 import { z } from 'zod'
-import type { CastParticipant, PersonaFlavor } from '@signal/shared'
-import { TRAIT_AXES } from '@signal/shared'
-import { traitWord } from '@signal/engine'
+import type { CastParticipant, PersonaFlavor } from '@heart/shared'
+import { TRAIT_AXES } from '@heart/shared'
+import { traitWord } from '@heart/engine'
 import type { TaskSpec } from '../task'
 import { checkDialogue, similarity } from '../validate'
 

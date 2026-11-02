@@ -1,6 +1,6 @@
-import type { AnyEvent, CastingView, HumanView, ParticipantView, PromptView, RoomView, TimerView, ViewPatch } from '@signal/shared'
-import { PD_ROOM_ID, STAGE_META, applyPatch, emptyHumanView } from '@signal/shared'
-import { canObserve, currentMembers, knownProfile } from '@signal/engine'
+import type { AnyEvent, CastingView, HumanView, ParticipantView, PromptView, RoomView, TimerView, ViewPatch } from '@heart/shared'
+import { PD_ROOM_ID, STAGE_META, applyPatch, emptyHumanView } from '@heart/shared'
+import { canObserve, currentMembers, knownProfile } from '@heart/engine'
 import type { GameSession } from './session'
 
 export type PatchListener = (patches: ViewPatch[]) => void
