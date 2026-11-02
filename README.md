@@ -3,6 +3,7 @@
 사람 1명이 AI 참가자 7명과 함께 3일짜리 연애 리얼리티 프로그램에 출연하는 로컬 멀티에이전트 시뮬레이션이다. AI 참가자들은 각자 인격과 기억을 따로 갖고, 서로 관계를 맺고, 각자 선택한다.
 
 - 모델: Qwen3.5-4B GGUF Q4_K_M, llama.cpp(WSL2 CUDA)
+- 프로필 사진: FLUX.2 [klein] 4B, stable-diffusion.cpp
 - 최소 사양: RTX 3060 Ti (VRAM 8GB)
 - 스택: Node 22 + TypeScript 백엔드, React + TypeScript + Vite 프론트엔드, SQLite
 
