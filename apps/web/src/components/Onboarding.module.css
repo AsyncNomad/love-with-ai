@@ -1,0 +1,160 @@
+.page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
+  padding: 32px 16px;
+  background: var(--chat-bg);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: min(560px, 100%);
+  padding: 32px;
+  border-radius: 28px;
+  background: #fff;
+  box-shadow: var(--shadow-soft);
+}
+
+.pd {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.pd p {
+  margin: 0;
+  padding: 14px 18px;
+  border-radius: 20px;
+  background: var(--bubble);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.pdBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #111;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.row {
+  display: flex;
+  gap: 12px;
+}
+
+.row label,
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  flex: 1;
+  font-size: 13px;
+  color: #555;
+}
+
+.narrow {
+  flex: 0 0 110px !important;
+}
+
+input,
+textarea {
+  padding: 12px 14px;
+  border: 1.5px solid var(--line);
+  border-radius: 14px;
+  font: inherit;
+  font-size: 15px;
+  color: var(--text);
+  outline: none;
+  resize: none;
+}
+
+input:focus,
+textarea:focus {
+  border-color: #111;
+}
+
+.segment {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 14px;
+  background: #f2f2f2;
+  align-self: flex-start;
+}
+
+.segment button {
+  min-width: 84px;
+  height: 36px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.segment .on {
+  background: #fff;
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.chip,
+.chipOn {
+  height: 34px;
+  padding: 0 14px;
+  border: 1.5px solid var(--line);
+  border-radius: 17px;
+  background: #fff;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.chipOn {
+  border-color: #111;
+  background: #111;
+  color: #fff;
+}
+
+.submit {
+  height: 52px;
+  border: 0;
+  border-radius: 26px;
+  background: #111;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.submit:disabled {
+  background: #ccc;
+}
+
+.error {
+  margin: 0;
+  color: #d23;
+  font-size: 14px;
+}
+
+.notice {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+}

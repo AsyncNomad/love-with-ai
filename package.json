@@ -1,0 +1,34 @@
+{
+  "name": "love-with-ai",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.16.1",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n server,web -c blue,magenta \"pnpm --filter @signal/server dev\" \"pnpm --filter @signal/web dev\"",
+    "build": "pnpm --filter @signal/web build",
+    "start": "pnpm --filter @signal/server start",
+    "typecheck": "pnpm -r --parallel typecheck",
+    "lint": "eslint .",
+    "depcruise": "depcruise packages apps --config .dependency-cruiser.cjs",
+    "test": "vitest run",
+    "check": "pnpm typecheck && pnpm lint && pnpm depcruise && pnpm test",
+    "sim": "pnpm --filter @signal/server cli sim",
+    "audit:run": "pnpm --filter @signal/server cli audit"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.6.6",
+    "concurrently": "^10.0.6",
+    "dependency-cruiser": "^18.7.0",
+    "eslint": "^10.14.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "fast-check": "^4.10.2",
+    "tsx": "^4.23.15",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.72.1",
+    "vitest": "^5.0.5"
+  }
+}

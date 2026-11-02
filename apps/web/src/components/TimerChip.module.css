@@ -1,0 +1,33 @@
+.chip {
+  position: absolute;
+  right: 24px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: var(--shadow-soft);
+  font-size: 13px;
+  pointer-events: auto;
+}
+
+.label {
+  color: var(--muted);
+}
+
+.time {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.urgent .time {
+  color: #e0245e;
+}
+
+@media (max-width: 900px) {
+  .chip {
+    position: static;
+    margin-left: 8px;
+  }
+}

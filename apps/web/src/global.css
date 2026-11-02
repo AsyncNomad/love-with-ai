@@ -1,0 +1,54 @@
+:root {
+  --sidebar-width: 380px;
+  --sidebar-bg: #f6f6f7;
+  --chat-bg: #fbfbfb;
+  --bubble: #efefef;
+  --bubble-mine: #141414;
+  --selected: #e9e9eb;
+  --line: #e6e6e8;
+  --text: #121212;
+  --muted: #8a8a8f;
+  --accent: #2f6fe4;
+  --shadow-soft: 0 2px 14px rgba(0, 0, 0, 0.07), 0 0 0 1px rgba(0, 0, 0, 0.03);
+  color-scheme: light;
+  font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', system-ui, sans-serif;
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--chat-bg);
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.12);
+}
+
+@media (max-width: 900px) {
+  :root {
+    --sidebar-width: 300px;
+  }
+}

@@ -1,6 +1,6 @@
 # SIGNAL HOUSE (love-with-ai) 설계
 
-이 문서가 설계의 정본이다. 원본 기획서 v2.0(2026-11-02)을 바탕으로 검토 피드백과 사용자 결정을 반영했다. 3일 일정, 투표, 방 배정 같은 게임 규칙은 [game-rules.md](game-rules.md)에 있다. 원본 기획서와 이 문서가 다르면 이 문서를 따른다. 원본과 달라진 점은 §3 결정 기록에서 "기획서 대비"로 표시했다.
+이 문서가 설계의 정본이다. 구현 진행 상황과 다음 할 일은 [status.md](status.md)에 있다. 원본 기획서 v2.0(2026-11-02)을 바탕으로 검토 피드백과 사용자 결정을 반영했다. 3일 일정, 투표, 방 배정 같은 게임 규칙은 [game-rules.md](game-rules.md)에 있다. 원본 기획서와 이 문서가 다르면 이 문서를 따른다. 원본과 달라진 점은 §3 결정 기록에서 "기획서 대비"로 표시했다.
 
 ## 1. 확정 사항
 
@@ -13,7 +13,7 @@
 | 추론 | llama.cpp `llama-server`. WSL2 안에서 CUDA로 빌드하고 `127.0.0.1`에만 바인딩한다. 슬롯은 1개(`-np 1`) |
 | 최소 사양 | RTX 3060 Ti (VRAM 8GB) |
 | 컨텍스트(KV) | `-c 102400`(약 100K). 항상 명시한다(D26) |
-| 백엔드 | Node 22 LTS + TypeScript |
+| 백엔드 | Node 22 LTS 이상 + TypeScript 6 (개발은 Node 24 LTS) |
 | 프론트엔드 | React + TypeScript + Vite |
 | 저장소 | SQLite(WAL) |
 | 네트워크 | 실행과 테스트 트래픽은 모두 로컬에 머문다. 외부 통신은 모델·패키지를 다운로드할 때뿐이다 |
@@ -131,6 +131,13 @@
   - 기각: 미리 만들어 둔 사진 풀. 캐스팅은 즉시 끝나지만 회차 사이에 사진이 반복되어 회차 독립(원칙 6)이 약해진다.
 - 실패하면 기본 아바타를 쓴다. 사진 생성이 실패해도 게임 시작은 막지 않는다.
 
+### D26. 컨텍스트는 약 100K로 항상 명시한다. 기획서 대비 변경
+- 결정: 사용자 결정. 최소 사양(RTX 3060 Ti, 8GB) 기준 `-c 102400`이다. 값은 `config/llm.ts`에 둔다.
+- `-c`를 생략하지 않는다. 생략하면 llama.cpp는 모델의 학습 컨텍스트를 쓰는데, Qwen3.5는 기본 컨텍스트가 262,144로 알려져 있어 8GB에 들어가지 않는다. 정확한 값은 Phase 1에서 GGUF 메타데이터로 확인한다.
+- VRAM 추정: full attention 층만 KV를 쓴다. 커뮤니티 모델 카드 기준(full attention 8층, KV 헤드 4개, 헤드 차원 256, f16)이면 토큰당 약 32KB다. 그러면 100K ≈ 3.2GB다. 여기에 가중치 약 2.8GB와 계산 버퍼를 더해도 100K 설정이 8GB 안에 들어간다. 층 구성 수치는 출처마다 달라서 Phase 1에서 실측한다. 넘치면 KV를 `q8_0`으로 양자화하는 것을 먼저 검토한다.
+- 호출 하나에 넣는 프롬프트 예산은 그대로 약 3k다(§9.3). 소형 모델은 컨텍스트가 길수록 품질이 떨어지고 프롬프트 처리 시간도 늘어난다. 큰 `-c`는 여유분이다. llama.cpp는 전체 `-c`를 슬롯 수로 나누므로, 나중에 `-np`를 늘리는 실험(Phase 6)도 이 여유분 안에서 할 수 있다.
+- 기각: 기획서의 `-c 8192`. 정상 경로에서는 충분하지만, 슬롯을 늘리거나 예산을 조정할 여지가 없다.
+
 ### D27. 게임 서버가 추론 프로세스를 소유하고, GPU를 임대(lease) 방식으로 나눈다
 - 이유: LLM과 이미지 모델을 바꿔 올리려면 누군가 프로세스를 띄우고 내려야 한다. 사람이 손으로 하면 교대가 불가능하다.
 - 방법: `InferenceSupervisor`가 `llama-server`와 stable-diffusion.cpp 프로세스를 띄우고, 헬스 체크를 하고, 종료한다. `GpuLease.acquire('llm' | 'image')`는 한 번에 한 쪽만 GPU를 쓰게 한다. 상대 쪽 프로세스를 내리고 VRAM이 비워진 것을 확인한 뒤 넘겨준다.
@@ -150,43 +157,59 @@
 - 이유: 기획서에는 사용자의 필수 대화만 규칙이 있었다. AI끼리 몇 쌍이 언제 대화하는지 정하지 않으면 GPU 예산을 잡을 수 없다.
 - 규칙은 [game-rules.md §8](game-rules.md#8-방-배정)에 있다.
 
-### D26. 컨텍스트는 약 100K로 항상 명시한다. 기획서 대비 변경
-- 결정: 사용자 결정. 최소 사양(RTX 3060 Ti, 8GB) 기준 `-c 102400`이다. 값은 `config/llm.ts`에 둔다.
-- `-c`를 생략하지 않는다. 생략하면 llama.cpp는 모델의 학습 컨텍스트를 쓰는데, Qwen3.5는 기본 컨텍스트가 262,144로 알려져 있어 8GB에 들어가지 않는다. 정확한 값은 Phase 1에서 GGUF 메타데이터로 확인한다.
-- VRAM 추정: full attention 층만 KV를 쓴다. 커뮤니티 모델 카드 기준(full attention 8층, KV 헤드 4개, 헤드 차원 256, f16)이면 토큰당 약 32KB다. 그러면 100K ≈ 3.2GB다. 여기에 가중치 약 2.8GB와 계산 버퍼를 더해도 100K 설정이 8GB 안에 들어간다. 층 구성 수치는 출처마다 달라서 Phase 1에서 실측한다. 넘치면 KV를 `q8_0`으로 양자화하는 것을 먼저 검토한다.
-- 호출 하나에 넣는 프롬프트 예산은 그대로 약 3k다(§9.3). 소형 모델은 컨텍스트가 길수록 품질이 떨어지고 프롬프트 처리 시간도 늘어난다. 큰 `-c`는 여유분이다. llama.cpp는 전체 `-c`를 슬롯 수로 나누므로, 나중에 `-np`를 늘리는 실험(Phase 6)도 이 여유분 안에서 할 수 있다.
-- 기각: 기획서의 `-c 8192`. 정상 경로에서는 충분하지만, 슬롯을 늘리거나 예산을 조정할 여지가 없다.
+### D28. TypeScript는 6으로 고정한다(2026-11-02, 구현 중 결정)
+- 이유: 설치 시점의 최신인 TypeScript 7(네이티브 Go 포트)을 typescript-eslint가 아직 지원하지 않는다. 린트를 품질 게이트에서 뺄 수 없으므로 생태계가 지원하는 6을 쓴다.
+- 재검토 조건: typescript-eslint가 7을 지원하면 올린다. 코드는 7에서도 타입 검사를 통과하는 것을 확인했다.
+
+### D29. projection은 메모리에서 fold로 만들고, SQLite에는 원천만 저장한다
+- 방법: 회차 하나가 SQLite 파일 하나다(`runs/<run_id>/run.sqlite`). 저장하는 테이블은 `events`(원천), `deliveries`(감사), `llm_calls`(운영), `meta`, `schema_version`이다. 참가자, 방, 투표, 관계, 기억은 `RunState`가 이벤트를 접어서 만든다(`engine/state.ts`).
+- 이유: 한 판의 이벤트는 수백~수천 개라 메모리 fold가 충분히 빠르다. 테이블을 이중으로 두면 둘이 어긋날 수 있다(D6).
+- 기각: 기획서 §43의 projection 테이블 전부를 SQL로 유지하는 방식. 나중에 회차 간 통계나 외부 조회가 필요해지면 그때 파생 테이블을 만든다.
+
+### D30. 새 입주자는 이미 와 있는 사람들의 이름을 입장 순간에 안다(감사로 발견)
+- 문제: 처음에는 이름 공개 이벤트가 하우스 가시성뿐이었다. 그래서 늦게 들어온 참가자는 먼저 와 있던 사람들의 이름 공개를 관찰하지 못했고, 투표 기억을 만들 때 서버가 아는 실명이 새어 나갔다. 시뮬레이션 audit의 `canary_in_prompt`가 잡아냈다.
+- 결정: 입장할 때 기존 입주자들의 이름을 새 입주자에게만(`participants` 가시성) 공개한다. 실제로 마주 보고 인사하는 순간이라 현실과도 맞다. 선택 기억은 항상 그 참가자 시점에서 아는 이름으로 쓴다.
+
+### D31. 어떤 참가자의 전체 이름도 다른 참가자의 부르는 이름을 품으면 안 된다(감사로 발견)
+- 문제: 성과 이름을 붙이면 "정우진"이 "최정우"의 "정우"를 품는다. 이러면 호칭 지목("정우씨")과 canary 검사가 모호해진다. 시드 1,000개 시뮬레이션에서 6건이 나왔다.
+- 결정: 캐스팅에서 이런 조합을 거부한다(사용자 이름 포함). 부르는 이름은 `engine/aliases.ts`의 `givenName` 하나로만 계산한다. 한글 3글자면 성 1글자, 4글자면 성 2글자를 떼고, 영문 닉네임이나 2글자 이름은 그대로 쓴다.
 
 ## 4. 아키텍처
 
 ```
  apps/web (React)
-     │  WebSocket: 사람 시점 View 이벤트 ↓ / 명령 ↑
+     │  WebSocket: 사람 시점 ViewPatch ↓ / 명령 ↑
      ▼
- apps/server ── Fastify + ws, Orchestrator 런타임(타이머, 장면 실행), CLI
+ apps/server ── 조립(composition root): Fastify + ws, 추론 구성(env), CLI(sim·audit·doctor), 시뮬레이터
      │
-     ├── packages/agents   컨텍스트 빌더, 프롬프트, 출력 검증, 인격 생성, 기억 요약
-     │        │ LlmPort (인터페이스)
+     ├── packages/runtime    오케스트레이터: Game, Director·StageRegistry, 단계 핸들러, ChatScene(발언 진행),
+     │                       GpuQueue, GameClock(일시정지 인식), HumanViewProjector, HumanGateway, audit
+     ├── packages/inference  LlmPort·ImagePort 구현: LlamaCppLlm, FakeLlm, SdCppImage, FakeImage,
+     │                       GpuLease 구현(PassthroughLease, ProcessGpuLease), LlamaServerProcess
+     ├── packages/store      SQLite 회차 저장소: events, deliveries, llm_calls, 마이그레이션
+     ├── packages/config     기본 설정과 캐스팅 풀(데이터만)
+     │
+     ├── packages/agents     ObservationView(시점 제한), 프롬프트, TaskSpec, AgentRunner, 출력 검증,
+     │        │              포트 인터페이스(LlmPort, ImagePort, GpuLease), FakeLlm 응답기
      │        ▼
-     ├── packages/llm      llama.cpp 어댑터, FakeLlm, 녹화·재생, GpuQueue
-     ├── packages/store    SQLite 이벤트 스토어, projection, 마이그레이션, deliveries
-     │
-     └── packages/engine   순수 로직: 상태 머신, 일정, 방·멤버십, 투표·매칭, 방 배정,
-              │            가시성, 관계 갱신 규칙, 궁합, 발언 스케줄러 점수
+     └── packages/engine     순수 로직: 상태 fold, 가시성, 투표·매칭, 방 배정, 발언자 점수, 궁합·관계 계산, 캐스팅 구조
               ▼
-         packages/shared   zod 스키마: 이벤트, 프로토콜, LLM 출력, 설정, ID 타입
+         packages/shared     zod 스키마: 도메인, 이벤트, 설정 타입, 프로토콜(ViewPatch, Command, applyPatch)
 ```
 
 ### 4.1 의존 방향
 
 ```
-shared ← engine ← agents ← (llm, store) ← apps/server
+shared ← engine ← agents ← (inference, store) ← apps/server
+                agents ← runtime ← apps/server
+shared ← config ← apps/server
 shared ← apps/web
 ```
 
 - `engine`은 I/O를 하지 않는다. 파일, 네트워크, DB, 시계, 난수를 직접 쓰지 않고 주입받는다.
-- `agents`는 `LlmPort` 인터페이스만 알고, 구현체(`llm`)는 모른다.
-- 방향은 `dependency-cruiser` 규칙으로 품질 게이트에서 강제한다.
+- `agents`는 `LlmPort`·`ImagePort`·`GpuLease` 인터페이스만 알고, 구현체(`inference`)는 모른다. `runtime`도 어댑터를 모른다. 조립은 `apps/server`에서만 한다.
+- 단계 핸들러와 엔진은 설정을 인자로 받는다. `config` 패키지를 직접 import하지 않는다.
+- 방향은 `dependency-cruiser` 규칙(`.dependency-cruiser.cjs`)으로 품질 게이트에서 강제한다. 선언하지 않은 패키지 import도 오류로 잡는다.
 - `apps/web`은 `shared`만 import한다.
 
 ### 4.2 확장 지점
@@ -242,28 +265,20 @@ type Visibility =
   | { kind: 'server' }                           // 서버 내부 전용 (궁합, 숨은 취향, LLM 원문)
 ```
 
-### 5.2 테이블
+### 5.2 저장 (D29)
+
+회차 하나가 `runs/<run_id>/run.sqlite` 파일 하나이고, 프로필 사진은 같은 디렉터리의 `avatars/`에 둔다.
 
 | 테이블 | 성격 | 비고 |
 |---|---|---|
-| `runs` | 메타 | id, status, seed, schema_version, created_at, completed_at |
-| `events` | **원천** | `(run_id, seq)` 유일, `(run_id, idempotency_key)` 유일 |
-| `participants` | projection | is_human, is_catfish, gender, name, age, occupation, residence, entry_order, joined_at |
-| `personas` | 캐스팅 결과(불변) | 구조화 필드 JSON, 자연어 프로필, 예시 대사, 숨은 취향(server 전용) |
-| `rooms` / `room_memberships` | projection | 멤버십마다 `run_id`, `joined_seq`, `left_seq`를 둔다 |
-| `messages` | projection | `MESSAGE_SENT`에서 만든다 |
-| `votes` | projection | `(run_id, stage, voter_id)` 유일 |
-| `relationships` | projection | 현재값. 이력은 `RELATIONSHIP_UPDATED` 이벤트에 있다 |
-| `speech_levels` | projection | (source, target) → polite \| casual |
-| `known_facts` | projection | owner, subject, field, value, source_event_id |
-| `memories` | 기억 | owner_id, kind(`summary`\|`impression`\|`choice`), content, source_event_ids, created_seq |
-| `deliveries` | 감사 | call_id, owner_id, task, 포함된 event_id·memory_id 목록, 프롬프트 해시, 프롬프트 원문(설정으로 켬), 시각 |
-| `llm_calls` | 운영 | call_id, task, 우선순위, 대기·처리 시간, 토큰 수, 결과(accepted/rejected/stale/error) |
-| `timers` | 상태 | 장면별 remaining_ms, paused 여부 |
+| `events` | **원천** | `seq` 기본키, `idempotency_key` 유일. 읽을 때 zod로 payload를 다시 검증한다 |
+| `deliveries` | 감사 | call_id, owner_id, task, attempt, seq_at_call, 근거 event seq 목록, memory id 목록, 프롬프트 원문 |
+| `llm_calls` | 운영 | call_id, task, owner, attempt, 처리 시간, 토큰 수, 결과(accepted/rejected/error/aborted), 거부 사유 |
+| `meta`, `schema_version` | 메타 | run_id, 순차 마이그레이션 |
 
-- 모든 테이블에 `run_id`가 있고, 모든 조회 함수는 `run_id`를 첫 인자로 받는다.
-- 기억 소유자와 회차의 일치는 외래 키 `(run_id, owner_id) → participants(run_id, id)`로 DB 수준에서 강제한다.
+- 나머지 상태(참가자, 방·멤버십, 투표, 관계, 말투, 기억, 상호작용 가중치)는 `RunState`가 이벤트를 접어서 만든다.
 - 멤버십은 시각이 아니라 이벤트 `seq` 구간으로 저장한다. 같은 시각에 이벤트가 여러 개 있어도 판정이 모호해지지 않는다.
+- 회차끼리 데이터를 공유하지 않는다. 파일이 다르기 때문이다(원칙 6).
 
 ## 6. 정보 격리
 
@@ -291,7 +306,7 @@ type Visibility =
 
 참가자가 다른 참가자에 대해 아는 신상은 `PROFILE_DISCLOSED` 이벤트로만 늘어난다.
 
-- 이름: 입장할 때 `house` 공개
+- 이름: 입장할 때 `house` 공개. 동시에 이미 와 있던 사람들의 이름을 새 입주자에게만(`participants`) 공개한다(D30).
 - 나이와 직업: 1일차 저녁 자기소개 때 공개
 - 자기소개 시점에 하우스에 있던 참가자만 알게 된다. 메기는 입장할 때 자기 정보를 공개하지만, 기존 참가자의 나이·직업은 대화로 들어야 안다.
 
@@ -425,7 +440,7 @@ interface LlmPort {
 2. **성향 벡터 다양성 샘플링.** 외향성, 개방성, 적극성, 감정 표현, 유머의 후보를 많이 뽑는다. 그다음 최원점 샘플링(farthest-point sampling)으로 서로 먼 7개를 고른다.
 3. **숨은 취향.** 성향 축에 대한 선호 벡터를 만들고, 싫어하는 성향 1~2개를 정한다(server 가시성).
 4. **말투 파라미터.** 평균 길이, 웃음 표현 빈도, 이모티콘 빈도, 질문 경향, 유머 스타일, 기본 존댓말 정도를 정한다.
-5. **이름.** 성별 풀에서 뽑는다. 성+이름 전체와 이름 2글자가 모두 겹치지 않게 한다.
+5. **이름.** 성별 풀에서 뽑는다. 성+이름 전체와 이름 2글자가 모두 겹치지 않게 하고, 어떤 전체 이름도 다른 사람(사용자 포함)의 부르는 이름을 품지 않게 한다(D31).
 6. **LLM 생성.** 참가자마다 작은 JSON을 3번 만든다.
    - (a) 배경, 가치관, 취향 세부, 장단점, 갈등 대응
    - (b) 말투 자연어 묘사 + 예시 대사 5줄(인사, 취미 질문에 대한 답, 맞장구, 가벼운 농담, 곤란할 때)
@@ -639,7 +654,7 @@ Phase 1에서 확인할 것:
 - **구조화 로그.** JSON 한 줄 형식으로 `runs/logs/`에 남긴다. 상관 키는 `run_id`, `call_id`, `seq`다.
 - **`pnpm doctor`.** Node 버전, llama-server 연결, 모델 파일, 채팅 템플릿 인식, thinking off 응답, VRAM, DB 쓰기 권한을 진단하고 해결 방법을 출력한다.
 - **`pnpm bench`.** 고정 프롬프트 세트로 지연과 tok/s를 잰다. 결과는 `docs/perf/`에 날짜별로 남긴다.
-- **회차 기록.** `runs/<run_id>.sqlite`에 저장한다. 게임이 끝나면 사용자가 보관하거나 삭제할 수 있다. 새 게임은 이전 파일을 열지 않는다.
+- **회차 기록.** `runs/<run_id>/run.sqlite`에 저장한다(사진은 `runs/<run_id>/avatars/`). 게임이 끝나면 사용자가 보관하거나 삭제할 수 있다. 새 게임은 이전 파일을 열지 않는다.
 - **로컬 전용.** llama-server와 게임 서버 모두 `127.0.0.1`에만 바인딩한다. 원격 텔레메트리는 없다.
 
 ## 17. 개발 단계
