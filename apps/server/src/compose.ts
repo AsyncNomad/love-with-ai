@@ -52,13 +52,14 @@ export function buildInference(env: ServerEnv, requestTimeoutMs: number, log: (l
     gpuLayers: 99,
     parallel: 1,
     startupTimeoutMs: 120_000,
+    extraArgs: env.llamaExtraArgs,
     health: () => llm.health(),
     log: (line) => log(`[llama-server] ${line}`),
   })
   const lease = new ProcessGpuLease(proc)
   const image =
     env.imageMode === 'sdcpp'
-      ? new SdCppImage({ binary: env.sdBin, diffusionModel: env.sdDiffusionModel, vae: env.sdVae, textEncoder: env.sdTextEncoder, timeoutMs: 180_000 })
+      ? new SdCppImage({ binary: env.sdBin, diffusionModel: env.sdDiffusionModel, vae: env.sdVae, textEncoder: env.sdTextEncoder, timeoutMs: 180_000, extraArgs: env.sdExtraArgs })
       : env.imageMode === 'fake'
         ? new FakeImage()
         : null

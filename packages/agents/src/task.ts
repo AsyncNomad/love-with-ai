@@ -24,7 +24,7 @@ export interface TaskSpec<I, Raw, R> {
   id: string
   ownerOf(input: I): ParticipantId | null
   sampling(ctx: TaskContext, input: I): SamplingConfig
-  maxTokens(ctx: TaskContext): number
+  maxTokens(ctx: TaskContext, input: I): number
   schema(input: I, ctx: TaskContext): z.ZodType<Raw>
   build(input: I, ctx: TaskContext): BuiltPrompt
   finish(raw: Raw, input: I, ctx: TaskContext, built: BuiltPrompt): Finish<R>
@@ -110,7 +110,7 @@ export class AgentRunner {
             { role: 'user', content: built.user },
           ],
           jsonSchema: toJsonSchema(schema),
-          maxTokens: spec.maxTokens(ctx),
+          maxTokens: spec.maxTokens(ctx, input),
           sampling: spec.sampling(ctx, input),
           ...(signal ? { signal } : {}),
           meta: built.meta,

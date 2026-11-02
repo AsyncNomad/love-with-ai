@@ -21,7 +21,13 @@ export interface ServerEnv {
   sdDiffusionModel: string
   sdVae: string
   sdTextEncoder: string
+  sdExtraArgs: string[]
+  llamaExtraArgs: string[]
   fakeLatencyMs: { min: number; max: number }
+}
+
+function splitArgs(value: string | undefined): string[] {
+  return value ? value.trim().split(/\s+/).filter(Boolean) : []
 }
 
 function pick<T extends string>(value: string | undefined, allowed: readonly T[], fallback: T): T {
@@ -45,9 +51,11 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env, root = resolve(imp
     contextSize: Number(env.LLAMA_CTX ?? 102_400),
     imageMode: pick(env.IMAGE_MODE, ['fake', 'sdcpp', 'off'] as const, llmMode === 'fake' ? 'fake' : 'off'),
     sdBin: resolve(root, env.SD_BIN ?? 'bin/sd-cli'),
-    sdDiffusionModel: resolve(root, env.SD_DIFFUSION_MODEL ?? 'models/flux-2-klein-4b-Q4_K_M.gguf'),
-    sdVae: resolve(root, env.SD_VAE ?? 'models/flux2-vae.safetensors'),
-    sdTextEncoder: resolve(root, env.SD_TEXT_ENCODER ?? 'models/qwen_3_4b-Q4_K_M.gguf'),
+    sdDiffusionModel: resolve(root, env.SD_DIFFUSION_MODEL ?? 'models/flux-2-klein-4b-Q4_0.gguf'),
+    sdVae: resolve(root, env.SD_VAE ?? 'models/flux2-small-decoder.safetensors'),
+    sdTextEncoder: resolve(root, env.SD_TEXT_ENCODER ?? 'models/Qwen3-4B-Q4_K_M.gguf'),
+    sdExtraArgs: splitArgs(env.SD_EXTRA_ARGS),
+    llamaExtraArgs: splitArgs(env.LLAMA_EXTRA_ARGS),
     fakeLatencyMs: { min: Number(env.FAKE_LATENCY_MIN ?? 600), max: Number(env.FAKE_LATENCY_MAX ?? 1800) },
   }
 }

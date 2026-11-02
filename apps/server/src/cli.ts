@@ -5,6 +5,7 @@ import { LlamaCppLlm } from '@heart/inference'
 import { auditRun } from '@heart/runtime'
 import { SqliteRunStore } from '@heart/store'
 import { readEnv } from './env'
+import { runBench } from './bench'
 import { DEFAULT_SIM_HUMAN, runSimulation } from './sim'
 
 /** 운영 CLI(design.md §16): sim, audit, doctor */
@@ -90,11 +91,27 @@ async function doctor(): Promise<number> {
   return bad === 0 ? 0 : 1
 }
 
+async function bench(args: string[]): Promise<number> {
+  const env = readEnv()
+  const n = Number(flag(args, '--n') ?? 1)
+  const report = await runBench({
+    url: flag(args, '--url') ?? env.llamaUrl,
+    label: flag(args, '--label') ?? 'local',
+    perTask: { dialogue: 16 * n, vote: 4 * n, invite_decision: 2 * n, self_intro: 3 * n, relationship_eval: 4 * n, memory_summary: 3 * n, persona_profile: 2 * n, persona_voice: 2 * n },
+    outDir: join(env.runsDir, 'bench'),
+    timeoutMs: 120_000,
+  })
+  console.log(report)
+  return 0
+}
+
 function flag(args: string[], name: string): string | undefined {
   const i = args.indexOf(name)
   return i >= 0 ? args[i + 1] : undefined
 }
 
 const [cmd, ...rest] = process.argv.slice(2)
-const code = cmd === 'sim' ? await sim(rest) : cmd === 'audit' ? audit(rest) : cmd === 'doctor' ? await doctor() : (console.error('commands: sim [--seeds N] | audit <runDir> | doctor'), 2)
+const COMMANDS: Record<string, (args: string[]) => number | Promise<number>> = { sim, audit, doctor: () => doctor(), bench }
+const run = cmd ? COMMANDS[cmd] : undefined
+const code = run ? await run(rest) : (console.error('commands: sim [--seeds N] | audit <runDir> | doctor | bench [--url U] [--label L] [--n N]'), 2)
 process.exit(code)

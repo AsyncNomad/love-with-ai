@@ -16,7 +16,11 @@
     "test": "vitest run",
     "check": "pnpm typecheck && pnpm lint && pnpm depcruise && pnpm test",
     "sim": "pnpm --filter @heart/server cli sim",
-    "audit:run": "pnpm --filter @heart/server cli audit"
+    "audit:run": "pnpm --filter @heart/server cli audit",
+    "bench": "pnpm --filter @heart/server cli bench",
+    "doctor": "pnpm --filter @heart/server cli doctor",
+    "setup:llm": "scripts/setup/toolchain.sh && scripts/setup/llama-cpp.sh && scripts/setup/models.sh llm",
+    "setup:image": "scripts/setup/toolchain.sh && scripts/setup/sd-cpp.sh && scripts/setup/models.sh image"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

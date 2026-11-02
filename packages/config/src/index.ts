@@ -101,7 +101,7 @@ export const defaultConfig: GameConfig = {
       self_intro: 140,
       vote: 120,
       invite_decision: 60,
-      relationship_eval: 260,
+      relationship_eval: 140,
       memory_summary: 320,
       persona_profile: 420,
       persona_voice: 360,

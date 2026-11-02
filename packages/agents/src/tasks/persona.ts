@@ -69,13 +69,20 @@ export const personaVoiceTask: TaskSpec<PersonaVoiceInput, PersonaVoice, Persona
     ].join(', ')
     return {
       system: SYSTEM,
-      user: `[정해진 사실]\n${structural(i.cast)}\n성향: ${i.profile.approach}\n말버릇 힌트: ${hints}\n\n[쓸 것] JSON으로만 답한다.\n- speechDescription: 이 사람의 메신저 말투를 한 문장으로(어미, 말버릇, 리듬).\n- exampleLines: 이 사람이 메신저로 할 법한 말 5개. 순서대로 (1) 처음 만난 사람에게 인사 (2) "쉬는 날 뭐 해요?"에 대한 답 (3) 맞장구 (4) 가벼운 농담 (5) 곤란할 때. 다른 사람 이름은 쓰지 않는다. 처음 만난 사이라 존댓말을 쓴다.`,
+      user: `[정해진 사실]\n${structural(i.cast)}\n성향: ${i.profile.approach}\n말버릇 힌트: ${hints}\n\n[쓸 것] JSON으로만 답한다.\n- speechDescription: 이 사람의 메신저 말투를 한 문장으로(어미, 말버릇, 리듬).\n- exampleLines: 이 사람이 메신저로 할 법한 말 5개. 순서대로 처음 만난 사람에게 인사, "쉬는 날 뭐 해요?"에 대한 답, 맞장구, 가벼운 농담, 곤란할 때 하는 말. 번호나 따옴표 없이 대사만 쓴다. 다른 사람 이름은 쓰지 않는다. 처음 만난 사이라 존댓말을 쓴다.`,
       view: null,
       meta: { name: i.cast.name },
     }
   },
   finish: (raw, i, ctx) => {
-    const lines = raw.exampleLines.map((l) => l.trim().replace(/^["“”']+|["“”']+$/g, ''))
+    // 모델이 지시문의 번호표 "(1)"나 따옴표를 그대로 붙이는 경우가 있다(실측).
+    const lines = raw.exampleLines.map((l) =>
+      l
+        .trim()
+        .replace(/^\(?\d+[).]\s*/, '')
+        .replace(/^["“”'‘’]+|["“”'‘’]+$/g, '')
+        .trim(),
+    )
     for (const line of lines) {
       const issues = checkDialogue({ text: line, speakerName: i.cast.name, maxChars: 70, unknownNames: [], recentOwn: [] }, ctx.config.validation)
       if (issues.length > 0) return { issues }

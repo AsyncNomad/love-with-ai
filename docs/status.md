@@ -33,7 +33,9 @@ TIME_SCALE=0.1 npm run dev   # 단계 시간을 10분의 1로 줄여서 빠르�
 | `IMAGE_MODE` | fake 모드면 `fake`, 아니면 `off` | `fake` / `sdcpp` / `off` |
 | `TIME_SCALE` | `1` | 단계 시간 배율 |
 | `LLAMA_BIN`, `LLAMA_MODEL`, `LLAMA_PORT`, `LLAMA_CTX` | `bin/llama-server`, `models/Qwen3.5-4B-Q4_K_M.gguf`, `8080`, `102400` | llama.cpp |
-| `SD_BIN`, `SD_DIFFUSION_MODEL`, `SD_VAE`, `SD_TEXT_ENCODER` | `bin/sd-cli`, `models/flux-2-klein-4b-Q4_K_M.gguf`, `models/flux2-vae.safetensors`, `models/qwen_3_4b-Q4_K_M.gguf` | stable-diffusion.cpp. 파일 이름은 실제로 받은 파일에 맞춰 지정한다 |
+| `SD_BIN`, `SD_DIFFUSION_MODEL`, `SD_VAE`, `SD_TEXT_ENCODER` | `bin/sd-cli`, `models/flux-2-klein-4b-Q4_0.gguf`, `models/flux2-small-decoder.safetensors`, `models/Qwen3-4B-Q4_K_M.gguf` | stable-diffusion.cpp. 기본값은 `setup:image`가 받는 파일과 같다 |
+| `SD_EXTRA_ARGS` | 없음 | sd-cli에 덧붙일 인자(예: VRAM이 부족할 때 `--offload-to-cpu`) |
+| `LLAMA_EXTRA_ARGS` | 없음 | llama-server에 덧붙일 인자 |
 | `RUNS_DIR` | `runs` | 회차 기록 위치 |
 
 ## 검증
@@ -63,6 +65,33 @@ TIME_SCALE=0.1 npm run dev   # 단계 시간을 10분의 1로 줄여서 빠르�
 - React StrictMode의 이중 마운트 때문에 Chrome에서 WebSocket 연결이 지연됐다.
 
 ## 남은 일
+
+### Phase 1 설치 절차 (스크립트화됨)
+
+sudo 없이 리포 안에 모두 설치한다(`.tools/`, `vendor/`, `bin/`, `models/`는 git에서 무시한다).
+
+```bash
+npm run setup:llm     # cmake·ninja(uv) + CUDA 12.9 툴킷(micromamba, 시스템에 nvcc가 없을 때) + llama.cpp 빌드 + Qwen3.5-4B 다운로드
+npm run setup:image   # stable-diffusion.cpp 빌드 + FLUX.2 klein 4B·Qwen3-4B 인코더·VAE 다운로드
+npm run doctor        # 경로·응답 확인
+npm run bench -- --url http://127.0.0.1:8080 --label <이름>   # 측정 리포트(runs/bench/)
+```
+
+- 버전 고정: llama.cpp `v0.8.0`, stable-diffusion.cpp `master-1039-290148d`, CUDA 12.9(`scripts/setup/env.sh`).
+- CUDA 아키텍처 기본값은 `75;86;89`다. 빌드 시간을 줄이려면 `CUDA_ARCHS=86`처럼 지정한다. 병렬 작업 수는 사용 가능 메모리 2GB당 1개로 자동 제한되고, `JOBS`로 덮어쓸 수 있다.
+- 모델 파일은 SHA-256으로 검증한다(`scripts/setup/models.sh`).
+  - VAE는 FLUX.2-small-decoder(Apache 2.0)를 쓴다. stable-diffusion.cpp 문서의 기본 VAE는 FLUX.2-dev 저장소에 있는데, 접근 승인이 필요하고 비상업 라이선스다.
+  - FLUX.2 klein 4B GGUF는 Q4_K_M 판이 없어서 Q4_0을 쓴다.
+
+### Phase 1 진행 기록 (2026-11-02, 18:00 중단)
+
+- 완료: 툴체인(CUDA 12.9 리포 내 설치), llama.cpp `v0.8.0` CUDA 빌드, 모델 4개 다운로드·해시 검증, `bench` CLI.
+- 계약 확인: `response_format`(json_schema) 준수 35/35, thinking 출력 0건(`chat_template_kwargs.enable_thinking=false`), `--reasoning on|off` 플래그 존재 확인.
+- 개발 PC 실측(최소 사양보다 느린 GPU, `-c 32768`): 전체 p50 2.33s / p95 4.83s, 대사 p50 2.42s / p95 4.11s, 생성 약 66 tok/s, 프롬프트 처리 약 210~230 tok/s, 한국어 글자당 0.48토큰. 최소 사양 실측은 아직 없다.
+- 실측으로 고친 것: 관계 평가 출력이 대상 수에 비례해 길어져 잘림 → 최대 토큰을 대상 수에 비례하게 바꿈. 예시 대사의 번호표 "(1)" 제거. 투표 프롬프트의 "선택하지 않음" 쏠림 완화(가짜 맥락에서는 여전히 4건 중 3건이 유보라 실제 대화로 재평가 필요).
+- 중단된 작업:
+  - stable-diffusion.cpp 빌드(465단계 중 약 130단계). `scripts/setup/sd-cpp.sh`를 다시 실행하면 이어서 빌드한다.
+  - 실제 모델로 1일차 한 판 돌리기. 처음부터 다시 한다(`LLM_MODE=external`, llama-server는 `bin/llama-server -m models/Qwen3.5-4B-Q4_K_M.gguf -ngl 99 -c 32768 -np 1 --jinja --host 127.0.0.1 --port 8080`).
 
 ### Phase 1에서 할 일 (실제 모델)
 1. llama.cpp를 WSL에서 CUDA로 빌드해 `bin/llama-server`에 둔다. Qwen3.5-4B Q4_K_M GGUF를 `models/`에 둔다. 다운로드가 필요하므로 진행 전에 확인을 받는다.

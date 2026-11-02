@@ -1,4 +1,4 @@
-import { fakeResponders } from '@heart/agents'
+import { fakeResponders, type LlmPort, type LlmRequest } from '@heart/agents'
 import { defaultConfig } from '@heart/config'
 import { createRng } from '@heart/engine'
 import { FakeImage, FakeLlm, PassthroughLease } from '@heart/inference'
@@ -11,6 +11,8 @@ export interface SimOptions {
   config?: GameConfig
   human?: HumanProfile
   maxVirtualMs?: number
+  /** LLM 요청을 가로채 기록한다(bench가 실제와 같은 형태의 요청을 얻는 데 쓴다). */
+  onRequest?: (req: LlmRequest) => void
 }
 
 export interface SimResult {
@@ -59,12 +61,22 @@ export async function runSimulation(opts: SimOptions): Promise<SimResult> {
   const host = new VirtualTimerHost()
   const sink = new MemorySink()
   const rng = createRng(opts.seed)
+  const fake = new FakeLlm({ rng: rng.fork('fake-llm'), responders: fakeResponders, latencyMs: { min: 400, max: 2500 }, sleep: virtualSleep(host) })
+  const onRequest = opts.onRequest
+  const llm: LlmPort = onRequest
+    ? {
+        generate: (req) => {
+          onRequest(req)
+          return fake.generate(req)
+        },
+      }
+    : fake
   const game = new Game({
     runId: `sim_${opts.seed}`,
     seed: opts.seed,
     config,
     sink,
-    llm: new FakeLlm({ rng: rng.fork('fake-llm'), responders: fakeResponders, latencyMs: { min: 400, max: 2500 }, sleep: virtualSleep(host) }),
+    llm,
     lease: new PassthroughLease(),
     image: new FakeImage(),
     avatars: new MemoryAvatarStore(),

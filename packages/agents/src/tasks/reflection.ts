@@ -30,7 +30,8 @@ export const relationshipEvalTask: TaskSpec<RelationshipEvalInput, { evaluations
   id: 'relationship_eval',
   ownerOf: (i) => i.ownerId,
   sampling: (ctx) => ctx.config.llm.judgement,
-  maxTokens: (ctx) => ctx.config.llm.maxTokens.relationship_eval ?? 260,
+  // 대상 한 명당 약 100토큰(실측). 여러 명을 평가하면 상한도 늘린다.
+  maxTokens: (ctx, i) => (ctx.config.llm.maxTokens.relationship_eval ?? 140) * Math.max(1, i.targetIds.length) + 60,
   schema: (i, ctx) => {
     const view = new ObservationView(ctx.state, i.ownerId, ctx.config)
     const names = i.targetIds.map((id) => view.known(id).name ?? id)

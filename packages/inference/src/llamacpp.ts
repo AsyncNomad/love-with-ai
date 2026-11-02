@@ -8,8 +8,9 @@ export interface LlamaCppOptions {
 }
 
 interface ChatCompletion {
-  choices?: { message?: { content?: string } }[]
+  choices?: { message?: { content?: string; reasoning_content?: string } }[]
   usage?: { prompt_tokens?: number; completion_tokens?: number }
+  timings?: { prompt_n?: number; prompt_ms?: number; predicted_n?: number; predicted_ms?: number }
 }
 
 /**
@@ -53,13 +54,32 @@ export class LlamaCppLlm implements LlmPort {
     if (res.status === 503) throw new LlmUnavailableError('llama-server is loading or overloaded (503)')
     if (!res.ok) throw new Error(`llama-server HTTP ${res.status}: ${(await res.text()).slice(0, 300)}`)
     const data = (await res.json()) as ChatCompletion
-    const content = data.choices?.[0]?.message?.content
+    const message = data.choices?.[0]?.message
+    const content = message?.content
     if (typeof content !== 'string') throw new Error('llama-server returned no content')
+    const t = data.timings
     return {
       content,
       promptTokens: data.usage?.prompt_tokens ?? null,
       completionTokens: data.usage?.completion_tokens ?? null,
+      ...(t && t.prompt_n !== undefined && t.predicted_n !== undefined
+        ? { timings: { promptTokens: t.prompt_n, promptMs: t.prompt_ms ?? 0, predictedTokens: t.predicted_n, predictedMs: t.predicted_ms ?? 0 } }
+        : {}),
+      ...(message?.reasoning_content ? { reasoning: message.reasoning_content } : {}),
     }
+  }
+
+  /** 한국어 토큰 비율 측정용(llama-server /tokenize). */
+  async tokenize(text: string): Promise<number> {
+    const res = await this.fetchImpl(`${this.opts.baseUrl}/tokenize`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ content: text }),
+      signal: AbortSignal.timeout(10_000),
+    })
+    if (!res.ok) throw new Error(`tokenize HTTP ${res.status}`)
+    const data = (await res.json()) as { tokens?: unknown[] }
+    return data.tokens?.length ?? 0
   }
 
   async health(): Promise<boolean> {
