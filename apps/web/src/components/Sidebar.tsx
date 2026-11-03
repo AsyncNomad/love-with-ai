@@ -9,11 +9,13 @@ interface Props {
   selectedId: string | null
   unread: Set<string>
   onSelect(id: string): void
+  /** false면 접혀서 폭이 0이 된다(왼쪽 위 ☰ 버튼). */
+  open: boolean
 }
 
-export function Sidebar({ view, rooms, selectedId, unread, onSelect }: Props) {
+export function Sidebar({ view, rooms, selectedId, unread, onSelect, open }: Props) {
   return (
-    <aside className={styles.sidebar}>
+    <aside className={`${styles.sidebar} ${open ? '' : styles.collapsed}`} aria-hidden={!open}>
       <header className={styles.brand}>
         <div className={styles.logo} aria-hidden>
           <svg viewBox="0 0 64 64" width="44" height="44">

@@ -19,6 +19,25 @@ function orderedRooms(view: HumanView): RoomView[] {
   })
 }
 
+const SIDEBAR_PREF = 'heart.sidebarOpen'
+
+/** 사이드바 열림 상태는 이 브라우저에만 기억한다. 저장소를 못 쓰는 환경(사생활 보호 모드 등)이면 기본값(열림). */
+function readSidebarPref(): boolean {
+  try {
+    return localStorage.getItem(SIDEBAR_PREF) !== '0'
+  } catch {
+    return true
+  }
+}
+
+function writeSidebarPref(open: boolean): void {
+  try {
+    localStorage.setItem(SIDEBAR_PREF, open ? '1' : '0')
+  } catch {
+    // 기억하지 못해도 동작에는 지장이 없다
+  }
+}
+
 function lastSeq(view: HumanView, roomId: string): number {
   return view.messages[roomId]?.at(-1)?.seq ?? 0
 }
@@ -36,6 +55,13 @@ export function App() {
   const [seen, setSeen] = useState<Record<string, number>>({})
   const [profileId, setProfileId] = useState<string | null>(null)
   const [dismissedRun, setDismissedRun] = useState<string | null>(null)
+  const [sidebarOpen, setSidebarOpen] = useState(readSidebarPref)
+  const toggleSidebar = (): void => {
+    setSidebarOpen((open) => {
+      writeSidebarPref(!open)
+      return !open
+    })
+  }
 
   // 이전 렌더와 비교해 선택을 조정한다(effect 대신 렌더 중 조정, React 권장 패턴).
   // 새로 들어간 방(1:1 이동 등)으로 옮기고, 보고 있던 방에서 내가 나가게 된 순간에만 열린 방으로 옮긴다.
@@ -69,7 +95,12 @@ export function App() {
 
   return (
     <div className={styles.app}>
-      <Sidebar view={view} rooms={rooms} selectedId={current} unread={unread} onSelect={setSelected} />
+      <button className={styles.menuButton} onClick={toggleSidebar} aria-label={sidebarOpen ? '채팅방 목록 닫기' : '채팅방 목록 열기'} aria-expanded={sidebarOpen}>
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden>
+          <path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        </svg>
+      </button>
+      <Sidebar view={view} rooms={rooms} selectedId={current} unread={unread} onSelect={setSelected} open={sidebarOpen} />
       <ChatPane
         view={view}
         timerSyncedAt={timerSyncedAt}
