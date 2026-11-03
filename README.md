@@ -4,7 +4,7 @@
 
 - 모델: Qwen3.5-4B GGUF Q4_K_M, llama.cpp(WSL2 CUDA)
 - 프로필 사진: FLUX.2 [klein] 4B, stable-diffusion.cpp
-- 최소 사양: RTX 3060 Ti (VRAM 8GB)
+- 최소 사양: RTX 3060 Ti (VRAM 8GB), 시스템 RAM 16GB (8GB 상한에서 실측 검증)
 - 스택: Node 22 이상 + TypeScript 6 백엔드, React + TypeScript + Vite 프론트엔드, SQLite
 
 ## 실행

@@ -79,7 +79,12 @@ const CASUAL_ENDING = /[다야자어아해지냐니래게걸까러봐줘와돼�
 
 /** 분명한 반말 어미로 끝나는가. 감탄사·짧은 반응("ㅋㅋㅋ", "오 진짜")은 반말로 보지 않는다. */
 export function isCasual(text: string): boolean {
-  const last = text.trim().split(/(?<=[.!?])\s+/).at(-1) ?? ''
+  // "이름만 알면 돼. ㅋㅋ"처럼 웃음만 따로 붙은 조각은 걷어 내고 마지막 진짜 문장으로 판정한다(실측).
+  const sentences = text
+    .trim()
+    .split(/(?<=[.!?])\s+/)
+    .filter((s) => /[가-힣]/.test(s))
+  const last = sentences.at(-1) ?? ''
   return !isPolite(last) && CASUAL_ENDING.test(last)
 }
 

@@ -1,15 +1,15 @@
 # 구현 현황
 
-마지막 갱신: 2026-11-02. 설계는 [design.md](design.md), 게임 규칙은 [game-rules.md](game-rules.md)를 본다. 이 문서는 무엇이 돌아가고, 무엇을 어떻게 검증했고, 무엇이 남았는지를 적는다.
+마지막 갱신: 2026-11-03. 설계는 [design.md](design.md), 게임 규칙은 [game-rules.md](game-rules.md)를 본다. 이 문서는 무엇이 돌아가고, 무엇을 어떻게 검증했고, 무엇이 남았는지를 적는다.
 
 ## 요약
 
 | 단계 | 상태 | 비고 |
 |---|---|---|
 | Phase 0 엔진 코어 | **완료** | FakeLlm 헤드리스 시뮬레이션 시드 1,000개 전부 통과, audit 위반 0건(약 60초) |
-| Phase 1 로컬 추론 | 어댑터만 작성 | `LlamaCppLlm`, `SdCppImage`, `LlamaServerProcess`, `ProcessGpuLease`, `doctor`. **실제 모델로는 아직 검증하지 않았다**(빌드·모델 다운로드 전) |
-| Phase 2 독립 에이전트 | 구조 완료, 품질 미검증 | 인격 생성, 시점 제한 컨텍스트, 검증 파이프라인, 관계 평가, 기억 요약이 FakeLlm으로 돈다. 실제 모델의 말투 구별은 Phase 1 이후 평가 |
-| Phase 3 1일차 + 웹 UI | **FakeLlm으로 플레이 가능** | 온보딩 → 캐스팅(사진 포함) → 입주 → 자유 대화 → 첫인상 선택·초대 → 1:1·그룹 대화 → 자기소개 → 저녁 대화 → 심야 선택 → 심야 대화 → 마무리 |
+| Phase 1 로컬 추론 | **완료(개발 PC 기준)** | llama.cpp·stable-diffusion.cpp 빌드, 모델 4개, 계약 확인, bench. 실제 모델로 GPU 교대 → 사진 7장 → 1일차 완주. 최소 사양(RTX 3060 Ti) 실측은 남았다 |
+| Phase 2 독립 에이전트 | 실제 모델로 동작, 품질 튜닝 중 | 실측으로 검증기 추가(한자 누출, 존댓말·반말, 예시 대사 번호표). 남은 품질 과제는 "알려진 한계" |
+| Phase 3 1일차 + 웹 UI | **플레이 가능(FakeLlm·실제 모델)** | 온보딩 → 캐스팅(사진 포함) → 입주 → 자유 대화 → 첫인상 선택·초대 → 1:1·그룹 대화 → 자기소개 → 저녁 대화 → 심야 선택 → 심야 대화 → 마무리 |
 | Phase 4~5 (2·3일차) | 미착수 | 1일차가 끝나면 "다음 날 일정은 준비 중" 안내 후 종료(`schedule_end`) |
 
 ## 실행
@@ -38,13 +38,38 @@ TIME_SCALE=0.1 npm run dev   # 단계 시간을 10분의 1로 줄여서 빠르�
 | `LLAMA_EXTRA_ARGS` | 없음 | llama-server에 덧붙일 인자 |
 | `RUNS_DIR` | `runs` | 회차 기록 위치 |
 
+## 시스템 요구 사항과 RAM 16GB 지원
+
+| 항목 | 요구 |
+|---|---|
+| GPU | RTX 3060 Ti(VRAM 8GB) 이상 |
+| 시스템 RAM | **16GB 이상**. 16GB Windows PC에서 WSL이 기본으로 받는 약 8GB로 충분하다 |
+| OS | Windows + WSL2(Ubuntu 24.04에서 확인) |
+
+**16GB 검증(2026-11-03).** `scripts/perf/e2e-memory.sh`로 측정했다. 프로그램 전체(게임 서버, llama-server, sd-cli)를 **메모리 상한 7.9GB cgroup**(16GB PC의 WSL과 같은 조건) 안에서 실제 모델로 돌렸다. 인격 생성 → GPU 교대 → 사진 7장 → 1일차 전체를 완주했고, **OOM은 0건**이었다.
+
+| 구간 | 회수 불가 메모리(anon+shmem) | 비고 |
+|---|---|---|
+| 인격 생성(LLM) | 약 2.5GB | llama-server 적재 중 |
+| 사진 생성(sd-cli) | **최대 4.8GB** (anon 0.5 + shmem 4.3) | CUDA 호스트 버퍼. 가장 큰 구간 |
+| 게임 진행(LLM) | 2.2~3.2GB | |
+| cgroup 전체(파일 캐시 포함) | 최대 7.2GB | 캐시는 모자라면 커널이 비운다 |
+
+- 실행 성능은 타협하지 않았다. 대사 속도는 VRAM이 결정하고 시스템 RAM과는 무관하다.
+- 메모리를 많이 쓰는 것은 컴파일 단계다(cicc 하나가 최대 5.8GB). `scripts/setup`은 메모리 상한 cgroup 안에서 병렬 수를 줄여 빌드하므로 16GB에서도 빌드된다. 대신 시간이 더 걸린다. 배포할 때는 미리 빌드한 바이너리를 주면 사용자 PC에서 컴파일할 필요가 없다.
+- 실행 전에 `npm run doctor`가 메모리 총량(7.5GB 이상)과 가용 메모리(6GB 이상 권장)를 점검한다.
+- 함께 띄운 개발 도구가 더 위험하다. VS Code Dart 확장이 홈 폴더 전체를 분석하면서 언어 서버가 11GB까지 커진 적이 있다. 게임 중에는 무거운 IDE와 언어 서버를 닫는다.
+- 개발 PC에서 사진 한 장은 약 50초(768×768, 4스텝)였다. VRAM이 모자라 확산 모델 가중치를 RAM에 두고 돌렸기 때문이다. 캐스팅 전체는 약 7분이었다. 최소 사양에서 다시 잰다.
+
 ## 검증
 
 | 명령 | 내용 | 마지막 결과 |
 |---|---|---|
-| `pnpm check` | 타입 검사(TS 6 strict), ESLint, dependency-cruiser(계층 규칙), vitest | 통과. 테스트 48개 |
+| `pnpm check` | 타입 검사(TS 6 strict), ESLint, dependency-cruiser(계층 규칙), vitest | 통과. 테스트 51개 |
 | `pnpm sim --seeds 1000` | FakeLlm + 가상 시계로 1일차 전체를 끝까지 진행하고 매 판 audit. 사용자 성별을 번갈아 바꾼다 | 1000/1000 통과 |
-| `pnpm audit:run runs/<run_id>` | 실제 플레이한 회차의 deliveries·출력을 가시성 규칙과 대조 | — |
+| `pnpm audit:run runs/<run_id>` | 실제 플레이한 회차의 deliveries·출력을 가시성 규칙과 대조 | 실제 모델 1일차 1판: 위반 0건 |
+| `scripts/perf/e2e-memory.sh [상한MB]` | 메모리 상한 cgroup 안에서 실제 모델 E2E를 돌리고 메모리를 2초 간격으로 기록(`runs/e2e-mem/`) | 7.9GB 상한에서 완주, OOM 0 |
+| `npm run drive -- --create` / `npm run transcript -- <runDir>` | 실행 중인 서버에 사람으로 붙어 한 판 진행 / 회차 기록을 대화록으로 출력(`--as p_00`이면 그 참가자 시점) | — |
 | `pnpm --filter @heart/server cli doctor` | Node 버전, 모드별 바이너리·모델 경로, llama-server 응답 확인 | — |
 
 테스트 구성:
@@ -99,37 +124,39 @@ npm run bench -- --url http://127.0.0.1:8080 --label <이름>   # 측정 리포�
 ```
 
 - 버전 고정: llama.cpp `v0.8.0`, stable-diffusion.cpp `master-1039-290148d`, CUDA 12.9(`scripts/setup/env.sh`).
-- CUDA 아키텍처 기본값은 `75;86;89`다. 빌드 시간을 줄이려면 `CUDA_ARCHS=86`처럼 지정한다. 병렬 작업 수는 사용 가능 메모리 2GB당 1개로 자동 제한되고, `JOBS`로 덮어쓸 수 있다.
+- CUDA 아키텍처 기본값은 `75;86;89`다. 빌드 시간을 줄이려면 `CUDA_ARCHS=86`처럼 지정한다.
+- 빌드는 전체 메모리의 60%를 상한으로 둔 cgroup 안에서 돈다(`MEM_LIMIT_MB`로 바꿀 수 있다). 병렬 수는 cicc 하나당 6GB 기준으로 정하고, `JOBS`로 덮어쓸 수 있다.
+- stable-diffusion.cpp의 `sd-server` 웹 프론트엔드 빌드(pnpm, 네트워크 필요)는 끈다.
 - 모델 파일은 SHA-256으로 검증한다(`scripts/setup/models.sh`).
   - VAE는 FLUX.2-small-decoder(Apache 2.0)를 쓴다. stable-diffusion.cpp 문서의 기본 VAE는 FLUX.2-dev 저장소에 있는데, 접근 승인이 필요하고 비상업 라이선스다.
   - FLUX.2 klein 4B GGUF는 Q4_K_M 판이 없어서 Q4_0을 쓴다.
 
-### Phase 1 진행 기록 (2026-11-02, 18:00 중단)
+### Phase 1 결과 (2026-11-02~03)
 
-- 완료: 툴체인(CUDA 12.9 리포 내 설치), llama.cpp `v0.8.0` CUDA 빌드, 모델 4개 다운로드·해시 검증, `bench` CLI.
-- 계약 확인: `response_format`(json_schema) 준수 35/35, thinking 출력 0건(`chat_template_kwargs.enable_thinking=false`), `--reasoning on|off` 플래그 존재 확인.
-- 개발 PC 실측(최소 사양보다 느린 GPU, `-c 32768`): 전체 p50 2.33s / p95 4.83s, 대사 p50 2.42s / p95 4.11s, 생성 약 66 tok/s, 프롬프트 처리 약 210~230 tok/s, 한국어 글자당 0.48토큰. 최소 사양 실측은 아직 없다.
-- 실측으로 고친 것: 관계 평가 출력이 대상 수에 비례해 길어져 잘림 → 최대 토큰을 대상 수에 비례하게 바꿈. 예시 대사의 번호표 "(1)" 제거. 투표 프롬프트의 "선택하지 않음" 쏠림 완화(가짜 맥락에서는 여전히 4건 중 3건이 유보라 실제 대화로 재평가 필요).
-- 중단된 작업:
-  - stable-diffusion.cpp 빌드(465단계 중 약 130단계). `scripts/setup/sd-cpp.sh`를 다시 실행하면 이어서 빌드한다.
-  - 실제 모델로 1일차 한 판 돌리기. 처음부터 다시 한다(`LLM_MODE=external`, llama-server는 `bin/llama-server -m models/Qwen3.5-4B-Q4_K_M.gguf -ngl 99 -c 32768 -np 1 --jinja --host 127.0.0.1 --port 8080`).
+- 툴체인(CUDA 12.9 리포 내 설치), llama.cpp `v0.8.0`와 stable-diffusion.cpp `master-1039-290148d` CUDA 빌드, 모델 4개 다운로드·해시 검증.
+- 계약: `response_format`(json_schema) 준수 35/35, thinking 출력 0건(`chat_template_kwargs.enable_thinking=false`), `--reasoning on|off` 플래그 존재.
+- 개발 PC 실측(최소 사양보다 느린 GPU, `-c 32768`): 전체 p50 2.33s / p95 4.83s, 대사 p50 2.42s / p95 4.11s, 생성 약 66 tok/s, 프롬프트 처리 약 210~230 tok/s, 한국어 글자당 0.48토큰.
+- `LLM_MODE=llamacpp IMAGE_MODE=sdcpp` E2E: 게임 서버가 llama-server를 내리고 사진 7장을 만든 뒤 다시 올려 1일차를 완주했다. GPU 교대가 동작한다. LLM 호출 거부율은 대사 11%, 인격 말투 50%다(존댓말 검증. 실패분은 재생성 후 1명만 템플릿으로 대체).
+- 실측으로 고친 것: 관계 평가 최대 토큰을 대상 수에 비례하게, 예시 대사 번호표 제거, 투표 유보 쏠림 완화, 한자·가나 누출 거부, 처음 만난 사이의 반말 거부(웃음만 붙은 조각 처리 포함).
 
-### Phase 1에서 할 일 (실제 모델)
-1. llama.cpp를 WSL에서 CUDA로 빌드해 `bin/llama-server`에 둔다. Qwen3.5-4B Q4_K_M GGUF를 `models/`에 둔다. 다운로드가 필요하므로 진행 전에 확인을 받는다.
-2. `LLM_MODE=external`로 먼저 붙여 본다. 확인할 것은 계약 사항이다. `response_format`(json_schema) 준수율, `chat_template_kwargs.enable_thinking=false` 동작, 요청 취소 동작.
-3. `bench` CLI를 추가하고 design.md §13을 실측값으로 바꾼다. 측정 항목은 지연 p50/p95, tok/s, 한국어 토큰 비율, VRAM(`-c 102400`)이다.
-4. stable-diffusion.cpp를 빌드하고 FLUX.2 [klein] 4B 파일을 받는다. CLI 플래그(`--diffusion-model`, `--vae`, `--llm`, `--cfg-scale 1.0`, `--steps 4`)를 실제로 확인하고 장당 시간을 잰다. 상주 서버 모드가 있으면 구현체를 하나 더 만든다.
-5. `LLM_MODE=llamacpp IMAGE_MODE=sdcpp`로 GPU 교대(llama-server 종료 → 사진 7장 → 재시작)가 되는지 확인한다.
+### Phase 1에서 남은 일
+1. 최소 사양(RTX 3060 Ti, `-c 102400`)에서 `bench`와 `scripts/perf/e2e-memory.sh`를 실측하고 design.md §13을 바꾼다.
+2. 캐스팅 시간 단축: 사진마다 sd-cli를 새로 띄우면서 모델을 7번 다시 읽는다. `sd-server` 상주 모드 구현체(`ImagePort`)를 추가한다.
 
 ### 설계에는 있지만 아직 구현하지 않은 것
 - 1:1에서 사람이 60초 동안 입력하지 않을 때의 자동 일시정지(design.md §12). 일시정지 사유 `afk`와 재개 UI는 만들어 두었다.
 - 서버 재시작 후 이어하기. 이벤트 로그와 fold는 준비됐지만, 단계 중간부터 재개하는 기능은 없다. 지금은 재시작하면 새 게임이다.
-- `ReplayLlm`(저장된 출력으로 재생), `bench`, 관전(god) 뷰(`--dev-observer`)
+- `ReplayLlm`(저장된 출력으로 재생), 관전(god) 뷰(`--dev-observer`). 지금은 `transcript` CLI가 god 로그 역할을 한다
 - 회차 기록 보관·삭제 UI
 - 2·3일차 단계 핸들러(메기, 브런치, 활동, 시그널 카드, 우체통, 마지막 데이트, 최종 선택, 결과 발표, 에필로그). `StageRegistry`에 등록하고 `config.schedule`에 단계를 추가하면 된다.
 
 ### 알려진 한계
-- FakeLlm의 대사는 정해진 문장 풀에서 뽑는다. 그래서 반복 검사 거부가 20% 안팎으로 나온다. 실제 모델의 거부율은 Phase 1에서 잰다.
+- FakeLlm의 대사는 정해진 문장 풀에서 뽑는다. 그래서 반복 검사 거부가 20% 안팎으로 나온다.
+- 실제 모델(4B)의 품질 과제(Phase 2 튜닝):
+  - "ㅋㅋ"를 과하게 쓰는 인물이 많다.
+  - 첫인상 투표에서 유보가 절반이다(심야 투표는 대부분 선택한다).
+  - 입장 인사를 두 번 하는 경우가 있다.
+  - 어색한 한국어 문장이 섞인다.
 - 자유 대화 속 사실("저 부산 살아요")은 사실로 저장하지 않는다(D7). 원문과 요약으로만 남는다.
 
 ## 코드 지도

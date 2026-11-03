@@ -56,9 +56,10 @@ export function drive(opts: DriveOptions): Promise<string> {
           else if (p.kind === 'invite') send({ type: 'respondInvite', voteId: p.voteId, acceptIds: p.candidateIds.slice(0, 1) })
           else if (p.kind === 'intro') send({ type: 'submitIntro', text: '안녕하세요, 영화랑 러닝 좋아하는 사람이에요. 잘 부탁드려요!' })
           else if (p.kind === 'resume') send({ type: 'resume' })
-          answered.delete(p.id)
         }, 1500)
       }
+      // 같은 선택 창에 두 번 답하지 않도록, 창이 사라진 뒤에만 잊는다.
+      for (const id of [...answered]) if (!view.prompts.some((p) => p.id === id)) answered.delete(id)
       if (view.status === 'completed' && created) {
         clearInterval(chat)
         ws.close()
