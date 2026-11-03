@@ -5,6 +5,7 @@ import { ObservationView } from '../observation'
 import { relationshipDetail } from '../persona-text'
 import { COMMON_RULES, joinSections, personaSection } from '../prompts'
 import type { TaskContext, TaskSpec } from '../task'
+import { hasForeignScript } from '../validate'
 
 /**
  * 판단 작업: 투표·초대(D20). 후보는 이름 enum으로만 받는다. 순서는 호출자가 섞어서 넘긴다.
@@ -145,6 +146,7 @@ export const selfIntroTask: TaskSpec<SelfIntroInput, { text: string }, string> =
     const okAge = text.includes(String(self.age))
     const okJob = text.includes(self.occupation.split(' ').at(-1) ?? self.occupation)
     if (!okAge || !okJob) return { issues: ['intro_mismatch'] }
+    if (hasForeignScript(text)) return { issues: ['foreign_script'] }
     if (text.length > ctx.config.validation.maxChars.intro) return { issues: ['too_long'] }
     return { value: text }
   },

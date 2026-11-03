@@ -12,9 +12,13 @@ export type IssueCode =
   | 'repetition'
   | 'intro_mismatch'
   | 'bad_choice'
+  | 'foreign_script'
+  | 'speech_level'
 
 export interface DialogueCheckInput {
   text: string
+  /** 그 자리의 모든 상대와 존댓말 사이인가(design.md D13). 참이면 반말 어미를 거부한다. */
+  mustBePolite?: boolean
   speakerName: string
   maxChars: number
   unknownNames: readonly string[]
@@ -49,9 +53,34 @@ export function checkDialogue(input: DialogueCheckInput, cfg: ValidationConfig):
   if (SPEAKER_LABEL.test(text) || /\s[가-힣]{2,4}\s*[:：]\s/.test(text)) issues.push('impersonation_line')
   if (cfg.impersonationPatterns.some((p) => new RegExp(p).test(text))) issues.push('system_impersonation')
   if (input.unknownNames.some((n) => containsName(text, n))) issues.push('unknown_name')
+  if (hasForeignScript(text)) issues.push('foreign_script')
+  if (input.mustBePolite && isCasual(text)) issues.push('speech_level')
   const recent = input.recentOwn.slice(-cfg.repetitionWindow)
   if (recent.some((r) => similarity(r, text) >= cfg.repetitionThreshold)) issues.push('repetition')
   return issues
+}
+
+/**
+ * 한국어 출력에 섞인 한자·가나를 찾는다. 다국어 모델(Qwen)에서 실측으로 나온 누출이다
+ * (예: "필라테스课上"). 라틴 문자는 닉네임·영단어로 흔히 쓰이므로 허용한다.
+ */
+export function hasForeignScript(text: string): boolean {
+  return /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/.test(text)
+}
+
+const POLITE_ENDING = /(요|니다|니까|세요|죠|에요|예요|군요|네요|래요|까요)[.!?~ㅋㅎ\s]*$/
+
+/** 존댓말로 끝나는 문장인가(대략적인 판정). */
+export function isPolite(text: string): boolean {
+  return POLITE_ENDING.test(text.trim())
+}
+
+const CASUAL_ENDING = /[다야자어아해지냐니래게걸까러봐줘와돼워]\s*[.!?~ㅋㅎ,\s]*$/
+
+/** 분명한 반말 어미로 끝나는가. 감탄사·짧은 반응("ㅋㅋㅋ", "오 진짜")은 반말로 보지 않는다. */
+export function isCasual(text: string): boolean {
+  const last = text.trim().split(/(?<=[.!?])\s+/).at(-1) ?? ''
+  return !isPolite(last) && CASUAL_ENDING.test(last)
 }
 
 /** 문자 3-gram Jaccard 유사도. */

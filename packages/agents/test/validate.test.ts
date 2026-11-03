@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { defaultConfig } from '@heart/config'
-import { checkDialogue, fitLength, normalizeUtterance, similarity } from '../src'
+import { checkDialogue, fitLength, hasForeignScript, isCasual, isPolite, normalizeUtterance, similarity } from '../src'
 
 const cfg = defaultConfig.validation
 const base = { speakerName: '정하린', maxChars: 80, unknownNames: [] as string[], recentOwn: [] as string[] }
@@ -52,5 +52,34 @@ describe('similarity', () => {
   it('is 1 for identical and low for unrelated lines', () => {
     expect(similarity('안녕하세요 반가워요', '안녕하세요 반가워요')).toBe(1)
     expect(similarity('안녕하세요 반가워요', '저는 러닝을 좋아해요')).toBeLessThan(0.2)
+  })
+})
+
+describe('script and politeness checks (from real-model output)', () => {
+  it('flags Chinese characters and kana leaking into Korean', () => {
+    expect(hasForeignScript('쉬는 날 필라테스课上하고 와인 한 잔')).toBe(true)
+    expect(hasForeignScript('こんにちは 반가워요')).toBe(true)
+    expect(hasForeignScript('저는 Jay라고 해요 ㅋㅋ')).toBe(false)
+    expect(checkDialogue({ ...base, text: '상대방을 逗引하는 스타일' }, cfg)).toContain('foreign_script')
+  })
+  it('tells polite endings from casual ones', () => {
+    expect(isPolite('안녕하세요!')).toBe(true)
+    expect(isPolite('저도 그 영화 봤어요ㅋㅋ')).toBe(true)
+    expect(isPolite('반갑습니다.')).toBe(true)
+    expect(isPolite('안녕! 처음 봐서 반갑다 ㅋㅋ')).toBe(false)
+    expect(isPolite('쉬는 날 필라테스하고 사진 찍는 거야.')).toBe(false)
+  })
+})
+
+describe('speech level (D13)', () => {
+  it('rejects clearly casual endings only when everyone present is still polite', () => {
+    expect(isCasual('안녕! 처음 봐서 반갑다 ㅋㅋ')).toBe(true)
+    expect(isCasual('박수아라고 불러.')).toBe(true)
+    expect(isCasual('오늘 하루 잘 보내자!')).toBe(true)
+    expect(isCasual('ㅋㅋㅋ')).toBe(false)
+    expect(isCasual('오 진짜')).toBe(false)
+    expect(isCasual('반가워요! 잘 부탁드려요')).toBe(false)
+    expect(checkDialogue({ ...base, text: '처음 봐서 반갑다', mustBePolite: true }, cfg)).toContain('speech_level')
+    expect(checkDialogue({ ...base, text: '처음 봐서 반갑다', mustBePolite: false }, cfg)).not.toContain('speech_level')
   })
 })

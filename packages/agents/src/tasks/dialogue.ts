@@ -71,7 +71,14 @@ export const dialogueTask: TaskSpec<DialogueInput, { action: 'speak' | 'silent';
     const normalized = normalizeUtterance(raw.text, speakerName)
     const fitted = fitLength(normalized, maxChars) ?? normalized
     const issues = checkDialogue(
-      { text: fitted, speakerName, maxChars, unknownNames: view.unknownNames(), recentOwn: view.ownRecentMessages(ctx.config.validation.repetitionWindow) },
+      {
+        text: fitted,
+        speakerName,
+        maxChars,
+        unknownNames: view.unknownNames(),
+        recentOwn: view.ownRecentMessages(ctx.config.validation.repetitionWindow),
+        mustBePolite: view.presentOthers(i.roomId).every((id) => view.speechLevel(id) === 'polite'),
+      },
       ctx.config.validation,
     )
     return issues.length > 0 ? { issues } : { value: { text: fitted } }

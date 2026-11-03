@@ -3,7 +3,7 @@ import type { CastParticipant, PersonaFlavor } from '@heart/shared'
 import { TRAIT_AXES } from '@heart/shared'
 import { traitWord } from '@heart/engine'
 import type { TaskSpec } from '../task'
-import { checkDialogue, similarity } from '../validate'
+import { checkDialogue, hasForeignScript, isPolite, similarity } from '../validate'
 
 /**
  * 인격 서술 생성(design.md §8.1-6). 구조적 값(이름·나이·직업·성향)은 서버가 정했고 LLM은 바꾸지 못한다.
@@ -39,7 +39,7 @@ export const personaProfileTask: TaskSpec<{ cast: CastParticipant }, PersonaProf
     view: null,
     meta: { name: i.cast.name },
   }),
-  finish: (raw) => ({ value: raw }),
+  finish: (raw) => (Object.values(raw).some(hasForeignScript) ? { issues: ['foreign_script'] } : { value: raw }),
 }
 
 export interface PersonaVoiceInput {
@@ -87,6 +87,9 @@ export const personaVoiceTask: TaskSpec<PersonaVoiceInput, PersonaVoice, Persona
       const issues = checkDialogue({ text: line, speakerName: i.cast.name, maxChars: 70, unknownNames: [], recentOwn: [] }, ctx.config.validation)
       if (issues.length > 0) return { issues }
     }
+    // 처음 만난 사이의 예시 대사는 존댓말이어야 한다. 반말 예시는 실제 대화도 반말로 끌고 간다(실측).
+    if (lines.filter(isPolite).length < 3) return { issues: ['not_polite'] }
+    if (hasForeignScript(raw.speechDescription)) return { issues: ['foreign_script'] }
     const overlap = lines.filter((l) => i.othersLines.some((o) => similarity(o, l) >= 0.5)).length
     if (overlap >= 2) return { issues: ['persona_overlap'] }
     return { value: { speechDescription: raw.speechDescription.trim(), exampleLines: lines } }

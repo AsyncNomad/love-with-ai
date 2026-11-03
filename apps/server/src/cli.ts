@@ -6,9 +6,11 @@ import { auditRun } from '@heart/runtime'
 import { SqliteRunStore } from '@heart/store'
 import { readEnv } from './env'
 import { runBench } from './bench'
+import { drive } from './drive'
+import { renderTranscript } from './transcript'
 import { DEFAULT_SIM_HUMAN, runSimulation } from './sim'
 
-/** 운영 CLI(design.md §16): sim, audit, doctor */
+/** 운영 CLI(design.md §16): sim, audit, doctor, bench, transcript */
 
 async function sim(args: string[]): Promise<number> {
   const n = Number(flag(args, '--seeds') ?? 20)
@@ -91,6 +93,31 @@ async function doctor(): Promise<number> {
   return bad === 0 ? 0 : 1
 }
 
+async function driveCmd(args: string[]): Promise<number> {
+  const env = readEnv()
+  const reason = await drive({
+    url: flag(args, '--url') ?? `ws://127.0.0.1:${env.port}/ws`,
+    profile: args.includes('--create') ? DEFAULT_SIM_HUMAN : null,
+    chatEveryMs: Number(flag(args, '--chat-every') ?? 9000),
+    log: (line) => console.log(`[drive] ${line}`),
+  })
+  console.log(`[drive] finished: ${reason}`)
+  return 0
+}
+
+function transcript(args: string[]): number {
+  const runDir = args.find((a) => !a.startsWith('--') && a !== flag(args, '--as'))
+  if (!runDir) {
+    console.error('usage: transcript <runs/run_xxx> [--as p_00]')
+    return 2
+  }
+  const runId = runDir.split('/').filter(Boolean).at(-1) ?? 'run'
+  const store = new SqliteRunStore(join(runDir, 'run.sqlite'), runId)
+  console.log(renderTranscript(store.loadEvents(), defaultConfig, flag(args, '--as') ?? null))
+  store.close()
+  return 0
+}
+
 async function bench(args: string[]): Promise<number> {
   const env = readEnv()
   const n = Number(flag(args, '--n') ?? 1)
@@ -111,7 +138,7 @@ function flag(args: string[], name: string): string | undefined {
 }
 
 const [cmd, ...rest] = process.argv.slice(2)
-const COMMANDS: Record<string, (args: string[]) => number | Promise<number>> = { sim, audit, doctor: () => doctor(), bench }
+const COMMANDS: Record<string, (args: string[]) => number | Promise<number>> = { sim, audit, doctor: () => doctor(), bench, transcript, drive: driveCmd }
 const run = cmd ? COMMANDS[cmd] : undefined
-const code = run ? await run(rest) : (console.error('commands: sim [--seeds N] | audit <runDir> | doctor | bench [--url U] [--label L] [--n N]'), 2)
+const code = run ? await run(rest) : (console.error('commands: sim [--seeds N] | audit <runDir> | doctor | bench [--url U] [--label L] [--n N] | transcript <runDir> [--as id] | drive [--create] [--url ws://…]'), 2)
 process.exit(code)

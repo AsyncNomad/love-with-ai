@@ -3,6 +3,7 @@ import type { ParticipantId, RelationshipAxis } from '@heart/shared'
 import { ObservationView } from '../observation'
 import { COMMON_RULES, joinSections, personaSection } from '../prompts'
 import type { TaskSpec } from '../task'
+import { hasForeignScript } from '../validate'
 
 /**
  * 장면이 끝난 뒤의 성찰 작업(design.md §9, §10.3). 대사 생성과 분리해서 소형 모델의 부담을 줄인다.
@@ -77,7 +78,7 @@ export const relationshipEvalTask: TaskSpec<RelationshipEvalInput, { evaluations
         targetId: id,
         deltas: { interest: e.interest, comfort: e.comfort, trust: e.trust, curiosity: e.curiosity },
         significant: e.significant,
-        impression: e.impression.trim(),
+        impression: hasForeignScript(e.impression) ? '' : e.impression.trim(),
         casual: e.casual,
       })
     }
@@ -110,6 +111,7 @@ export const memorySummaryTask: TaskSpec<MemorySummaryInput, { summary: string }
   },
   finish: (raw) => {
     const text = raw.summary.trim()
-    return text.length === 0 ? { issues: ['empty'] } : { value: text }
+    if (text.length === 0) return { issues: ['empty'] }
+    return hasForeignScript(text) ? { issues: ['foreign_script'] } : { value: text }
   },
 }

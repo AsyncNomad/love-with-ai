@@ -9,7 +9,7 @@ export type FakeResponder = (req: LlmRequest, rng: Rng) => unknown
 
 const LINES = [
   '오 그거 저도 좋아해요',
-  '아 진짜요? 신기하다',
+  '아 진짜요? 신기하네요',
   '저는 주말에 주로 집에 있는 편이에요',
   '여기 분위기 생각보다 좋네요',
   '다들 긴장 좀 풀리셨어요?',
