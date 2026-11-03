@@ -3,7 +3,7 @@ import type { ParticipantId } from '@heart/shared'
 import { ObservationView } from '../observation'
 import { COMMON_RULES, joinSections, memorySection, personaSection, privateSignalsSection } from '../prompts'
 import type { TaskSpec } from '../task'
-import { checkDialogue, fitLength, normalizeUtterance } from '../validate'
+import { checkDialogue, fitLength, limitLaughter, normalizeUtterance } from '../validate'
 import { candidateLines } from './decisions'
 
 /**
@@ -60,7 +60,7 @@ export const mailboxQuestionTask: TaskSpec<MailboxQuestionInput, { target: strin
     if (!targetId) return { issues: ['bad_choice'] }
     const self = view.self().cast
     const max = ctx.config.validation.maxChars.mailbox
-    const normalized = normalizeUtterance(raw.question, self.name)
+    const normalized = limitLaughter(normalizeUtterance(raw.question, self.name), self.speech.laughter)
     const text = fitLength(normalized, max) ?? normalized
     // 실측: 질문 대신 감상만 쓴 경우가 있었다("음악과 함께 하는 건 정말 감동적인 일 같아요.").
     // 물음표만 빠진 의문문("~하시나요.")이 더 흔해서, 의문형 어미면 물음표를 붙여 받는다.
@@ -112,7 +112,7 @@ export const mailboxAnswerTask: TaskSpec<MailboxAnswerInput, { text: string }, s
     const view = built.view as ObservationView
     const self = view.self().cast
     const max = ctx.config.validation.maxChars.mailbox
-    const normalized = normalizeUtterance(raw.text, self.name)
+    const normalized = limitLaughter(normalizeUtterance(raw.text, self.name), self.speech.laughter)
     const text = fitLength(normalized, max) ?? normalized
     const issues = checkDialogue(
       { text, speakerName: self.name, maxChars: max, unknownNames: view.unknownNames(), recentOwn: [], mustBePolite: view.speechLevel(i.askerId) === 'polite', knownNames: namesKnownTo(view, i.answererId) },

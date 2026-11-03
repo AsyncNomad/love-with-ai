@@ -4,7 +4,7 @@ import { containsName } from '@heart/engine'
 import { ObservationView } from '../observation'
 import { COMMON_RULES, joinSections, personaSection, privateSignalsSection } from '../prompts'
 import type { TaskSpec } from '../task'
-import { checkDialogue, fitLength, normalizeUtterance } from '../validate'
+import { checkDialogue, fitLength, limitLaughter, normalizeUtterance } from '../validate'
 import { candidateLines } from './decisions'
 
 /**
@@ -57,7 +57,7 @@ export const signalCardTask: TaskSpec<SignalCardInput, { target: string; text: s
     if (!targetId) return { issues: ['bad_choice'] }
     const self = view.self().cast
     const max = ctx.config.validation.maxChars.card
-    const normalized = normalizeUtterance(raw.text, self.name)
+    const normalized = limitLaughter(normalizeUtterance(raw.text, self.name), self.speech.laughter)
     const text = fitLength(normalized, max) ?? normalized
     if (containsName(text, self.name)) return { issues: ['sender_name'] }
     // 실측: "혹시 그분에게 이 카드가 닿을까요?"처럼 받는 사람이 아니라 카드 자체를 말하는 문장이 나왔다.
