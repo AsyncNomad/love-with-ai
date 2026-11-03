@@ -23,7 +23,7 @@ export function renderPersona(cast: CastParticipant, flavor: PersonaFlavor | nul
   }
   lines.push(`말투: ${speechRules(cast, flavor)}`)
   if (flavor && flavor.exampleLines.length > 0) {
-    lines.push('말투 예시:', ...flavor.exampleLines.map((l) => `- "${l}"`))
+    lines.push('말투 예시(어투만 참고한다. 내용을 그대로 옮겨 쓰지 않는다):', ...flavor.exampleLines.map((l) => `- "${l}"`))
   }
   return lines.join('\n')
 }

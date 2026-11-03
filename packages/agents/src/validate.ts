@@ -23,6 +23,8 @@ export interface DialogueCheckInput {
   maxChars: number
   unknownNames: readonly string[]
   recentOwn: readonly string[]
+  /** 화자가 아는 다른 참가자의 전체 이름. 반말 호칭("수아야") 판정과 영어 이름 허용에 쓴다. */
+  knownNames?: readonly string[]
 }
 
 const SPEAKER_LABEL = /^\s*[[(]?([가-힣A-Za-z]{1,8})[\])]?\s*[:：]\s*/
@@ -53,8 +55,9 @@ export function checkDialogue(input: DialogueCheckInput, cfg: ValidationConfig):
   if (SPEAKER_LABEL.test(text) || /\s[가-힣]{2,4}\s*[:：]\s/.test(text)) issues.push('impersonation_line')
   if (cfg.impersonationPatterns.some((p) => new RegExp(p).test(text))) issues.push('system_impersonation')
   if (input.unknownNames.some((n) => containsName(text, n))) issues.push('unknown_name')
-  if (hasForeignScript(text)) issues.push('foreign_script')
-  if (input.mustBePolite && isCasual(text)) issues.push('speech_level')
+  const known = input.knownNames ?? []
+  if (hasForeignScript(text) || hasEnglishWord(text, known)) issues.push('foreign_script')
+  if (input.mustBePolite && (isCasual(text) || hasCasualWord(text, known))) issues.push('speech_level')
   const recent = input.recentOwn.slice(-cfg.repetitionWindow)
   if (recent.some((r) => isRepeat(r, text, cfg.repetitionThreshold))) issues.push('repetition')
   return issues
@@ -68,6 +71,15 @@ export function hasForeignScript(text: string): boolean {
   return /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/.test(text)
 }
 
+/**
+ * 한국어 문장 속 소문자 영단어(실측: "많은 people 만나는"). 대문자로 시작하는 이름·약어(Jay, MBTI)와
+ * 아는 참가자 이름은 허용한다.
+ */
+export function hasEnglishWord(text: string, allowed: readonly string[] = []): boolean {
+  const ok = new Set(allowed.map((a) => a.toLowerCase()))
+  return (text.match(/(?<![A-Za-z])[a-z]{3,}(?![A-Za-z])/g) ?? []).some((w) => !ok.has(w))
+}
+
 const POLITE_ENDING = /(요|니다|니까|세요|죠|에요|예요|군요|네요|래요|까요)[.!?~ㅋㅎ\s]*$/
 
 /** 존댓말로 끝나는 문장인가(대략적인 판정). */
@@ -75,17 +87,60 @@ export function isPolite(text: string): boolean {
   return POLITE_ENDING.test(text.trim())
 }
 
-const CASUAL_ENDING = /[다야자어아해지냐니래게걸까러봐줘와돼워]\s*[.!?~ㅋㅎ,\s]*$/
+const TAIL = String.raw`\s*[.!?~ㅋㅎ,\s]*$`
+const CASUAL_ENDING = new RegExp(String.raw`(?:[다야자어아해지냐니래게걸까러봐줘와돼워든군]|(?<=[가-힣])네|구나)` + TAIL)
+/** 마지막이 아닌 문장에서 반말로 보는 어미. "맛있겠다!" 같은 혼잣말 감탄(-다)은 존댓말 사이에서도 흔해서 뺀다. */
+const STRONG_CASUAL_ENDING = new RegExp(String.raw`(?:[야자어아해지냐줘워]|(?<=[가-힣])네|거든|구나)` + TAIL)
 
-/** 분명한 반말 어미로 끝나는가. 감탄사·짧은 반응("ㅋㅋㅋ", "오 진짜")은 반말로 보지 않는다. */
+/**
+ * 분명한 반말 어미로 끝나는 문장이 있는가. 감탄사·짧은 반응("ㅋㅋㅋ", "오 진짜", "네!")은 반말로 보지 않는다.
+ * 마지막 문장만 보면 "야, 귀엽네. 같이 가요?" 같은 섞어 쓰기를 놓친다(실측). 앞 문장은 분명한 어미만 본다.
+ */
 export function isCasual(text: string): boolean {
-  // "이름만 알면 돼. ㅋㅋ"처럼 웃음만 따로 붙은 조각은 걷어 내고 마지막 진짜 문장으로 판정한다(실측).
+  // "이름만 알면 돼. ㅋㅋ"처럼 웃음만 따로 붙은 조각은 걷어 낸다(실측).
   const sentences = text
     .trim()
     .split(/(?<=[.!?])\s+/)
     .filter((s) => /[가-힣]/.test(s))
   const last = sentences.at(-1) ?? ''
-  return !isPolite(last) && CASUAL_ENDING.test(last)
+  if (!isPolite(last) && CASUAL_ENDING.test(last)) return true
+  return sentences.slice(0, -1).some((s) => (s.match(/[가-힣]/g) ?? []).length >= 2 && !isPolite(s) && STRONG_CASUAL_ENDING.test(s))
+}
+
+const EDGE = String.raw`(?:^|[\s,.!?~])`
+const END = String.raw`(?=$|[\s,.!?~])`
+/** 어미가 존댓말이어도 반말인 낱말(실측: "안녕, 저는 ~예요", "야, ~", "내 손톱이"). */
+const CASUAL_WORD = new RegExp(`${EDGE}(?:안녕|야|나는|난|내가|나도|내|너는|넌|네가|너도|니가|너랑)${END}`)
+
+/** 반말 낱말이나 반말 호칭("수아야", "우진아")이 있는가. */
+export function hasCasualWord(text: string, knownNames: readonly string[] = []): boolean {
+  if (CASUAL_WORD.test(text)) return true
+  return knownNames
+    .map(givenName)
+    .filter((g) => /^[가-힣]+$/.test(g))
+    .some((g) => new RegExp(`${EDGE}${g}(?:아|야)${END}`).test(text))
+}
+
+const escapeRe = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+/**
+ * 번역투 호칭 정리. 소형 모델은 영어처럼 "수아, 주말엔 ~", "안녕하세요, 우진!"처럼 이름만 불러 말을 건다(실측).
+ * 한국어 메신저에서는 이름을 아예 부르지 않거나 "수아 씨"라고 부른다.
+ * - 메시지 맨 앞의 호칭("수아,", "우진!", "수아 씨,", "수아야,")은 지운다.
+ * - 존댓말 사이에서 이름만 덩그러니 부르면("안녕하세요, 우진!") "씨"를 붙인다.
+ */
+export function fixAddress(text: string, names: readonly string[], polite: boolean): string {
+  const forms = [...new Set(names.flatMap((n) => [n, givenName(n)]))]
+    .filter((f) => f.length > 0)
+    .sort((a, b) => b.length - a.length)
+    .map(escapeRe)
+  if (forms.length === 0) return text
+  const alt = forms.join('|')
+  const lead = new RegExp(String.raw`^\s*(?:${alt})(?:\s*(?:씨|님)|아|야)?\s*[,!~]+\s*`)
+  let out = text
+  for (let i = 0; i < 3 && lead.test(out); i++) out = out.replace(lead, '')
+  if (polite) out = out.replace(new RegExp(String.raw`(^|[\s,])(${alt})(?=\s*[,.!?~]|$)`, 'g'), '$1$2 씨')
+  return out.trim()
 }
 
 /**

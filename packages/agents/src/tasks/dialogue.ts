@@ -3,7 +3,7 @@ import type { ParticipantId, RoomId } from '@heart/shared'
 import { ObservationView } from '../observation'
 import { COMMON_RULES, conversationSection, joinSections, memorySection, peopleSection, personaSection, situationSection } from '../prompts'
 import type { TaskSpec } from '../task'
-import { checkDialogue, fitLength, limitLaughter, normalizeUtterance } from '../validate'
+import { checkDialogue, fitLength, fixAddress, limitLaughter, normalizeUtterance } from '../validate'
 
 export type DialogueMode = 'reply' | 'start_topic' | 'greeting' | 'open_private' | 'wrap_up' | 'follow_up'
 
@@ -20,10 +20,10 @@ export interface DialogueOutput {
 }
 
 const INSTRUCTIONS: Record<DialogueMode, string> = {
-  reply: '대화 흐름에 맞게 다음 말을 한 마디 해라. 할 말이 없으면 침묵해도 된다.',
+  reply: '대화 흐름에 맞게 다음 말을 한 마디 해라. 방금 나온 말에 대답하거나 반응하는 것이 먼저다. 할 말이 없으면 침묵해도 된다.',
   follow_up: '방금 나온 말에 자연스럽게 이어서 한 마디 해라. 굳이 할 말이 없으면 침묵해라.',
-  start_topic: '대화가 잠시 끊겼다. 네 성격에 맞게 가볍게 새 화제를 꺼내라. 이미 나온 얘기를 반복하지 마라.',
-  greeting: '방금 숙소 거실에 처음 들어왔다. 먼저 와 있던 사람들에게 짧게 인사해라. 이름만 밝히고 나이나 직업은 아직 말하지 않는다.',
+  start_topic: '대화가 잠시 끊겼다. 지금 장소나 방금까지 나온 얘기와 이어지는 가벼운 화제를 꺼내라. 이미 나온 얘기를 반복하지 마라.',
+  greeting: '방금 숙소 거실에 처음 들어왔다. 먼저 와 있던 사람들에게 "안녕하세요"로 짧게 인사하고 이름을 말해라. 나이나 직업은 아직 말하지 않는다.',
   open_private: '단둘이 이야기할 시간이 생겼다. 상대에게 먼저 가볍게 말을 걸어라.',
   wrap_up: '대화 시간이 곧 끝난다. 새 화제를 꺼내지 말고 자연스럽게 마무리하는 말을 해라.',
 }
@@ -48,6 +48,13 @@ export const dialogueTask: TaskSpec<DialogueInput, { action: 'speak' | 'silent';
     const view = new ObservationView(ctx.state, i.speakerId, ctx.config)
     const others = view.presentOthers(i.roomId)
     const maxChars = i.isPrivate ? ctx.config.validation.maxChars.private : ctx.config.validation.maxChars.group
+    const firstMeeting = others.length > 0 && others.every((id) => view.speechLevel(id) === 'polite')
+    // 처음 만난 사이에 취미·주말 같은 질문을 갑자기 던지는 경우가 많았다(실측). 자리에 맞는 화제를 알려 준다.
+    const meetingHint = !firstMeeting
+      ? ''
+      : i.mode === 'start_topic'
+        ? '\n아직 서로 잘 모르는 사이라 존댓말을 쓴다. 오는 길, 숙소 첫인상, 방금 들은 자기소개처럼 처음 만난 자리에 어울리는 얘기를 한다.'
+        : '\n아직 서로 잘 모르는 사이라 존댓말을 쓴다.'
     const system = joinSections(
       COMMON_RULES,
       personaSection(view),
@@ -58,7 +65,7 @@ export const dialogueTask: TaskSpec<DialogueInput, { action: 'speak' | 'silent';
       peopleSection(view, ctx, others),
       memorySection(view, ctx, others),
       conversationSection(view, ctx, i.roomId),
-      `[지금 할 일]\n${INSTRUCTIONS[i.mode]}`,
+      `[지금 할 일]\n${INSTRUCTIONS[i.mode]}${meetingHint}`,
     )
     const self = view.self().cast
     return { system, user, view, meta: { mode: i.mode, speakerName: self.name, roomId: i.roomId } }
@@ -69,7 +76,13 @@ export const dialogueTask: TaskSpec<DialogueInput, { action: 'speak' | 'silent';
     const cast = ctx.state.participants.get(i.speakerId)?.cast
     const speakerName = cast?.name ?? ''
     const maxChars = i.isPrivate ? ctx.config.validation.maxChars.private : ctx.config.validation.maxChars.group
-    const normalized = limitLaughter(normalizeUtterance(raw.text, speakerName), cast?.speech.laughter ?? 0)
+    const mustBePolite = view.presentOthers(i.roomId).every((id) => view.speechLevel(id) === 'polite')
+    const knownNames = [...view.knownNames()]
+      .filter((id) => id !== i.speakerId)
+      .map((id) => view.known(id).name)
+      .filter((n): n is string => n !== null)
+    const addressed = fixAddress(normalizeUtterance(raw.text, speakerName), knownNames, mustBePolite)
+    const normalized = limitLaughter(addressed, cast?.speech.laughter ?? 0)
     if (normalized.length === 0) return { value: { text: null } }
     const fitted = fitLength(normalized, maxChars) ?? normalized
     const issues = checkDialogue(
@@ -79,7 +92,8 @@ export const dialogueTask: TaskSpec<DialogueInput, { action: 'speak' | 'silent';
         maxChars,
         unknownNames: view.unknownNames(),
         recentOwn: view.ownRecentMessages(ctx.config.validation.repetitionWindow),
-        mustBePolite: view.presentOthers(i.roomId).every((id) => view.speechLevel(id) === 'polite'),
+        mustBePolite,
+        knownNames,
       },
       ctx.config.validation,
     )

@@ -3,7 +3,7 @@ import type { CastParticipant, PersonaFlavor } from '@heart/shared'
 import { TRAIT_AXES } from '@heart/shared'
 import { traitWord } from '@heart/engine'
 import type { TaskSpec } from '../task'
-import { LAUGH_THRESHOLD, checkDialogue, hasForeignScript, isPolite, limitLaughter, similarity } from '../validate'
+import { LAUGH_THRESHOLD, checkDialogue, hasCasualWord, hasForeignScript, isPolite, limitLaughter, similarity } from '../validate'
 
 /**
  * 인격 서술 생성(design.md §8.1-6). 구조적 값(이름·나이·직업·성향)은 서버가 정했고 LLM은 바꾸지 못한다.
@@ -69,7 +69,7 @@ export const personaVoiceTask: TaskSpec<PersonaVoiceInput, PersonaVoice, Persona
     ].join(', ')
     return {
       system: SYSTEM,
-      user: `[정해진 사실]\n${structural(i.cast)}\n성향: ${i.profile.approach}\n말버릇 힌트: ${hints}\n\n[쓸 것] JSON으로만 답한다.\n- speechDescription: 이 사람의 메신저 말투를 한 문장으로(어미, 말버릇, 리듬).\n- exampleLines: 이 사람이 메신저로 할 법한 말 5개. 순서대로 처음 만난 사람에게 인사, "쉬는 날 뭐 해요?"에 대한 답, 맞장구, 가벼운 농담, 곤란할 때 하는 말. 번호나 따옴표 없이 대사만 쓴다. 다른 사람 이름은 쓰지 않는다. 처음 만난 사이라 존댓말을 쓴다.`,
+      user: `[정해진 사실]\n${structural(i.cast)}\n성향: ${i.profile.approach}\n말버릇 힌트: ${hints}\n\n[쓸 것] JSON으로만 답한다.\n- speechDescription: 이 사람의 메신저 말투를 한 문장으로(어미, 말버릇, 리듬).\n- exampleLines: 이 사람이 대화 중에 할 법한 말 5개. 순서대로 상대 말에 맞장구, 상대 말에 공감하며 자기 경험을 짧게 덧붙이는 말, 놀라거나 신기할 때 하는 말, 가벼운 농담, 쑥스럽거나 곤란할 때 하는 말. 인사말·자기소개·질문은 쓰지 않는다. 번호나 따옴표 없이 대사만 쓴다. 다른 사람 이름은 쓰지 않는다. 처음 만난 사이라 존댓말을 쓰고, 한국 사람이 실제로 쓰는 자연스러운 말투로 쓴다.`,
       view: null,
       meta: { name: i.cast.name },
     }
@@ -88,7 +88,7 @@ export const personaVoiceTask: TaskSpec<PersonaVoiceInput, PersonaVoice, Persona
       if (issues.length > 0) return { issues }
     }
     // 처음 만난 사이의 예시 대사는 존댓말이어야 한다. 반말 예시는 실제 대화도 반말로 끌고 간다(실측).
-    if (lines.filter(isPolite).length < 3) return { issues: ['not_polite'] }
+    if (lines.filter(isPolite).length < 3 || lines.some((l) => hasCasualWord(l))) return { issues: ['not_polite'] }
     if (hasForeignScript(raw.speechDescription)) return { issues: ['foreign_script'] }
     const overlap = lines.filter((l) => i.othersLines.some((o) => similarity(o, l) >= 0.5)).length
     if (overlap >= 2) return { issues: ['persona_overlap'] }

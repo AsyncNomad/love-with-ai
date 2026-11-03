@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { defaultConfig } from '@heart/config'
-import { checkDialogue, fitLength, hasForeignScript, isCasual, isPolite, isRepeat, limitLaughter, normalizeUtterance, similarity } from '../src'
+import { checkDialogue, fitLength, fixAddress, hasCasualWord, hasEnglishWord, hasForeignScript, isCasual, isPolite, isRepeat, limitLaughter, normalizeUtterance, similarity } from '../src'
 
 const cfg = defaultConfig.validation
 const base = { speakerName: '정하린', maxChars: 80, unknownNames: [] as string[], recentOwn: [] as string[] }
@@ -98,5 +98,41 @@ describe('laughter and repetition (from real-model play)', () => {
     const b = '아, 커피 안 마셨네요. 저는 오늘 아침에 커피 한 잔 마시면서 영상 편집을 하다가 잠깐 쉬었어요 혹시 뭐가 좋으신가요? 오늘 분위기 좀 바꿀 수 있는 거 있을까요?'
     expect(isRepeat(a, b, 0.7)).toBe(true)
     expect(isRepeat('네 좋아요', '네 좋네요', 0.7)).toBe(false)
+  })
+})
+
+describe('natural Korean address and speech level (from real-model play)', () => {
+  const names = ['황수아', '김우진', 'Jay']
+  it('catches casual words and vocatives even when the ending is polite', () => {
+    expect(hasCasualWord('안녕, 저는 황수아라고 해요.')).toBe(true)
+    expect(hasCasualWord('오늘 내 손톱이 너무 길어서 미용실 가는 거 잊고 있었네요.')).toBe(true)
+    expect(hasCasualWord('야, 손톱 길어졌다고 장난치니 귀여워요.')).toBe(true)
+    expect(hasCasualWord('저 김우진이라고 해요, 수아야.', names)).toBe(true)
+    expect(hasCasualWord('안녕하세요, 내일 봬요. 안녕히 주무세요.', names)).toBe(false)
+    expect(hasCasualWord('수아 씨는 주말에 뭐 하세요?', names)).toBe(false)
+  })
+  it('catches casual endings the old check missed, without flagging short replies', () => {
+    expect(isCasual('저랑 같이 캠핑도 하고 싶거든?')).toBe(true)
+    expect(isCasual('장난치니 귀엽네.')).toBe(true)
+    expect(isCasual('아 그렇구나.')).toBe(true)
+    expect(isCasual('괜찮아! 저도 처음이에요.')).toBe(true)
+    expect(isCasual('네!')).toBe(false)
+    expect(isCasual('와 맛있겠다! 저도 먹어 보고 싶어요.')).toBe(false)
+    expect(isCasual('아, 그렇군요. 신기하네요.')).toBe(false)
+  })
+  it('rejects lowercase English words but allows names and acronyms', () => {
+    expect(hasEnglishWord('오늘도 광주에서 많은 people 만나는 바리스타예요')).toBe(true)
+    expect(hasEnglishWord('Jay 씨는 MBTI가 뭐예요?')).toBe(false)
+    expect(hasEnglishWord('jay 씨도 오셨네요', ['jay'])).toBe(false)
+    expect(checkDialogue({ ...base, text: '많은 people 만나요' }, cfg)).toContain('foreign_script')
+  })
+  it('drops a leading bare-name vocative and adds 씨 to a bare name mid-sentence', () => {
+    expect(fixAddress('수아, 주말엔 주로 필라테스 해요.', names, true)).toBe('주말엔 주로 필라테스 해요.')
+    expect(fixAddress('우진 씨, 저도 그래요.', names, true)).toBe('저도 그래요.')
+    expect(fixAddress('안녕하세요, 우진! 반가워요.', names, true)).toBe('안녕하세요, 우진 씨! 반가워요.')
+    expect(fixAddress('반가워요, Jay.', names, true)).toBe('반가워요, Jay 씨.')
+    expect(fixAddress('수아 씨는 주말에 뭐 하세요?', names, true)).toBe('수아 씨는 주말에 뭐 하세요?')
+    expect(fixAddress('저는 김우진이에요.', names, true)).toBe('저는 김우진이에요.')
+    expect(fixAddress('안녕하세요, 우진!', names, false)).toBe('안녕하세요, 우진!')
   })
 })
