@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { defaultConfig } from '@heart/config'
 import { LlamaCppLlm } from '@heart/inference'
@@ -66,6 +66,12 @@ async function doctor(): Promise<number> {
   const checks: [string, boolean, string][] = []
   const major = Number(process.versions.node.split('.')[0])
   checks.push(['node >= 22', major >= 22, `현재 ${process.versions.node}. nvm install 24`])
+  // 16GB PC 기준(docs/status.md "RAM 16GB 지원"): WSL이 기본으로 받는 메모리는 약 8GB이고, 실측 최대 사용량은 그 안에 든다.
+  const mem = readMeminfo()
+  if (mem) {
+    checks.push([`메모리 총량 ${(mem.totalMb / 1024).toFixed(1)}GB (필요: 7.5GB 이상)`, mem.totalMb >= 7_500, 'WSL 메모리가 부족합니다. %UserProfile%\\.wslconfig 의 [wsl2] memory 값을 늘리세요'])
+    checks.push([`지금 쓸 수 있는 메모리 ${(mem.availableMb / 1024).toFixed(1)}GB (권장: 6GB 이상)`, mem.availableMb >= 6_000, '실행 전에 무거운 IDE·언어 서버(예: Dart/Flutter 분석기)를 닫으세요'])
+  }
   checks.push([`LLM_MODE=${env.llmMode}`, true, ''])
   if (env.llmMode === 'llamacpp') {
     checks.push([`llama-server 바이너리 ${env.llamaBin}`, existsSync(env.llamaBin), 'WSL에서 CUDA로 빌드한 llama-server를 bin/에 두거나 LLAMA_BIN을 지정'])
@@ -130,6 +136,16 @@ async function bench(args: string[]): Promise<number> {
   })
   console.log(report)
   return 0
+}
+
+function readMeminfo(): { totalMb: number; availableMb: number } | null {
+  try {
+    const text = readFileSync('/proc/meminfo', 'utf8')
+    const kb = (key: string): number => Number(new RegExp(`^${key}:\\s+(\\d+)`, 'm').exec(text)?.[1] ?? 0)
+    return { totalMb: kb('MemTotal') / 1024, availableMb: kb('MemAvailable') / 1024 }
+  } catch {
+    return null
+  }
 }
 
 function flag(args: string[], name: string): string | undefined {

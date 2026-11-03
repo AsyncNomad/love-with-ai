@@ -13,6 +13,7 @@ log "stable-diffusion.cpp 빌드 (CUDA archs: $CUDA_ARCHS, jobs: $JOBS, 메모�
 cmake -S "$SRC" -B "$SRC/build" -G Ninja \
   -DCMAKE_BUILD_TYPE=Release \
   -DSD_CUDA=ON \
+  -DSD_SERVER_BUILD_FRONTEND=OFF \
   -DCMAKE_CUDA_ARCHITECTURES="$CUDA_ARCHS" \
   -DBUILD_SHARED_LIBS=OFF >/dev/null
 capped cmake --build "$SRC/build" -j "$JOBS"
