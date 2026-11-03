@@ -18,13 +18,29 @@ MICROMAMBA_VERSION="2.10.0-0"
 # 75 = RTX 20/GTX 16, 86 = RTX 30(최소 사양 RTX 3060 Ti), 89 = RTX 40
 CUDA_ARCHS="${CUDA_ARCHS:-75;86;89}"
 
-# CUDA 커널 컴파일은 작업당 메모리를 많이 쓴다. 사용 가능 메모리 2GB당 1개로 제한한다.
+# 빌드는 메모리 상한이 있는 별도 cgroup(systemd user scope)에서 돌린다(docs/status.md "WSL이 꺼지는 문제").
+# WSL(systemd=true)에서는 Windows에서 띄운 프로세스(VS Code, 터미널, 에이전트)가 모두 init.scope에 있고,
+# init.scope는 OOMPolicy=stop이다. 그 안에서 OOM 킬이 한 번만 나도 systemd가 세션 전체를 죽여 WSL이 꺼진 것처럼 보인다.
+# 기본 상한은 전체 메모리의 60%다. MEM_LIMIT_MB로 바꿀 수 있다.
+MEM_LIMIT_MB="${MEM_LIMIT_MB:-$(awk '/MemTotal/ {print int($2/1024*0.6)}' /proc/meminfo)}"
+
+# CUDA 템플릿 인스턴스(flash attention, mmq) 하나를 컴파일할 때 cicc가 최대 약 6GB를 쓴다(실측 5.8GB).
+# 상한 안에서 작업당 6GB로 병렬 수를 정한다.
 if [[ -z "${JOBS:-}" ]]; then
-  avail_gb=$(awk '/MemAvailable/ {print int($2/1024/1024)}' /proc/meminfo)
-  JOBS=$(( avail_gb / 2 ))
+  JOBS=$(( MEM_LIMIT_MB / 6144 ))
   (( JOBS < 1 )) && JOBS=1
   (( JOBS > $(nproc) )) && JOBS=$(nproc)
 fi
+
+# 무거운 명령을 메모리 상한 cgroup 안에서 실행한다. 상한을 넘으면 그 안의 프로세스만 죽고 세션은 살아남는다.
+# user systemd가 없으면(일반 리눅스, 컨테이너) 그냥 실행한다.
+capped() {
+  if systemd-run --user --scope -q true 2>/dev/null; then
+    systemd-run --user --scope -q -p "MemoryMax=${MEM_LIMIT_MB}M" -p OOMPolicy=continue -- "$@"
+  else
+    "$@"
+  fi
+}
 
 mkdir -p "$TOOLS" "$VENDOR" "$BIN" "$MODELS"
 

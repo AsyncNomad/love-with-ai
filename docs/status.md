@@ -64,6 +64,27 @@ TIME_SCALE=0.1 npm run dev   # 단계 시간을 10분의 1로 줄여서 빠르�
 - 서버가 선언하지 않은 `ws` 패키지를 import했다(의존성 검사).
 - React StrictMode의 이중 마운트 때문에 Chrome에서 WebSocket 연결이 지연됐다.
 
+## WSL이 꺼지는 문제 (2026-11-03 분석)
+
+증상: 무거운 빌드 중에 VS Code 연결, 터미널, 에이전트가 한꺼번에 끊기고 WSL이 꺼진 것처럼 보였다. 두 번째에는 VM까지 내려갔다.
+
+원인(journalctl로 확인):
+1. **메모리 고갈.** WSL에 주어진 메모리는 15.5GB(호스트의 절반)와 스왑 4GB다. 그런데 다음이 동시에 돌았다.
+   - stable-diffusion.cpp CUDA 빌드: 병렬 4개. cicc 하나가 flash-attention·mmq 템플릿을 컴파일할 때 최대 5.8GB를 쓴다.
+   - llama-server: 3.2GB
+   - VS Code의 Dart 언어 서버(다른 Flutter 프로젝트): 2.5~2.8GB
+   - VS Code 서버와 확장: 약 2GB
+2. **systemd의 연쇄 종료.** `systemd=true`인 WSL에서는 Windows에서 띄운 모든 프로세스(VS Code 서버, 터미널, 에이전트, 여기서 `setsid nohup`으로 띄운 작업까지)가 `init.scope` 하나에 들어간다. `init.scope`는 `OOMPolicy=stop`이다. 커널이 그 안의 프로세스(cicc) 하나를 OOM으로 죽이면, systemd가 init.scope 전체를 멈추고 약 3분 뒤 남은 프로세스를 모두 SIGKILL한다(09:15 OOM → 09:18·09:20 일괄 종료).
+3. 남은 프로세스가 메모리를 계속 쓰면서 OOM이 반복됐다. 마지막 세션이 끝나자 사용자 관리자가 내려갔고, 그 뒤 WSL VM이 유휴 상태로 꺼졌다(09:26).
+
+조치:
+- 리포에서 한 것: 빌드를 메모리 상한이 있는 별도 cgroup(`systemd-run --user --scope -p MemoryMax=… -p OOMPolicy=continue`)에서 돌린다(`scripts/setup/env.sh`의 `capped`). 상한을 넘으면 빌드만 죽고 세션은 산다. 병렬 수는 cicc당 6GB 기준으로 계산하므로, 이 PC에서는 1이 된다.
+- 오래 도는 작업(llama-server, E2E 게임)도 `systemd-run --user --scope -p MemoryMax=…`로 띄운다. `setsid`는 cgroup을 벗어나지 못하므로 쓰지 않는다.
+- 사용자 쪽 권장(아직 적용하지 않음):
+  - `%UserProfile%\.wslconfig`에 `[wsl2]` / `memory=20GB` / `swap=16GB`를 쓰고 `wsl --shutdown`한다. 호스트 여유 메모리를 보고 값을 정한다.
+  - sudo로 `/etc/systemd/system.conf.d/oom.conf`에 `[Manager]` / `DefaultOOMPolicy=continue`를 쓴다. 이렇게 하면 OOM 하나가 세션 전체를 죽이지 않는다.
+  - 무거운 빌드 중에는 Flutter 프로젝트 창(Dart 언어 서버)을 닫는다.
+
 ## 남은 일
 
 ### Phase 1 설치 절차 (스크립트화됨)

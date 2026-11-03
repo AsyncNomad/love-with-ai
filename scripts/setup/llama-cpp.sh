@@ -9,7 +9,7 @@ if [[ ! -d "$SRC/.git" ]]; then
   git clone --quiet --depth 1 --branch "$LLAMA_CPP_REF" https://github.com/ggml-org/llama.cpp "$SRC"
 fi
 
-log "llama.cpp 빌드 (CUDA archs: $CUDA_ARCHS, jobs: $JOBS)"
+log "llama.cpp 빌드 (CUDA archs: $CUDA_ARCHS, jobs: $JOBS, 메모리 상한: ${MEM_LIMIT_MB}MB)"
 cmake -S "$SRC" -B "$SRC/build" -G Ninja \
   -DCMAKE_BUILD_TYPE=Release \
   -DGGML_CUDA=ON \
@@ -18,7 +18,7 @@ cmake -S "$SRC" -B "$SRC/build" -G Ninja \
   -DLLAMA_BUILD_TESTS=OFF \
   -DLLAMA_BUILD_EXAMPLES=OFF \
   -DBUILD_SHARED_LIBS=OFF >/dev/null
-cmake --build "$SRC/build" --target llama-server -j "$JOBS"
+capped cmake --build "$SRC/build" --target llama-server -j "$JOBS"
 
 ln -sf "$SRC/build/bin/llama-server" "$BIN/llama-server"
 log "완료: $BIN/llama-server"

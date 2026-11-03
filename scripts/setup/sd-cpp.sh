@@ -9,13 +9,13 @@ if [[ ! -d "$SRC/.git" ]]; then
   git clone --quiet --depth 1 --branch "$SD_CPP_REF" --recurse-submodules --shallow-submodules https://github.com/leejet/stable-diffusion.cpp "$SRC"
 fi
 
-log "stable-diffusion.cpp 빌드 (CUDA archs: $CUDA_ARCHS, jobs: $JOBS)"
+log "stable-diffusion.cpp 빌드 (CUDA archs: $CUDA_ARCHS, jobs: $JOBS, 메모리 상한: ${MEM_LIMIT_MB}MB)"
 cmake -S "$SRC" -B "$SRC/build" -G Ninja \
   -DCMAKE_BUILD_TYPE=Release \
   -DSD_CUDA=ON \
   -DCMAKE_CUDA_ARCHITECTURES="$CUDA_ARCHS" \
   -DBUILD_SHARED_LIBS=OFF >/dev/null
-cmake --build "$SRC/build" -j "$JOBS"
+capped cmake --build "$SRC/build" -j "$JOBS"
 
 CLI=$(find "$SRC/build/bin" -maxdepth 1 -type f \( -name 'sd-cli' -o -name 'sd' \) | head -1)
 [[ -n "$CLI" ]] || { echo "sd-cli 실행 파일을 찾지 못했습니다" >&2; exit 1; }
