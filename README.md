@@ -18,6 +18,13 @@ npm run check               # 타입·린트·계층 규칙·테스트
 npm run sim -- --seeds 1000 # 헤드리스 시뮬레이션 + 정보 격리 감사
 ```
 
+Node 22 이상이 필요하다. nvm으로 설치했다면 `~/.bashrc`에 아래 줄이 있어야 새 터미널에서 nvm의 Node가 잡힌다(없으면 시스템의 옛 Node가 실행된다). `npm run dev`/`start`/`check`는 실행 전에 버전을 검사한다.
+
+```bash
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+```
+
 스크립트는 `npm run`과 `pnpm` 어느 쪽으로 실행해도 같다. 내부에서 pnpm을 부르므로 pnpm이 설치되어 있어야 한다.
 
 실제 모델 모드와 환경 변수는 [docs/status.md](docs/status.md)를 본다.

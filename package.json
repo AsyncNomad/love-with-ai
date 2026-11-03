@@ -7,13 +7,16 @@
     "node": ">=22"
   },
   "scripts": {
+    "predev": "node scripts/check-node.cjs",
     "dev": "concurrently -k -n server,web -c blue,magenta \"pnpm --filter @heart/server dev\" \"pnpm --filter @heart/web dev\"",
     "build": "pnpm --filter @heart/web build",
+    "prestart": "node scripts/check-node.cjs",
     "start": "pnpm build && pnpm --filter @heart/server start",
     "typecheck": "pnpm -r --parallel typecheck",
     "lint": "eslint .",
     "depcruise": "depcruise packages apps --config .dependency-cruiser.cjs",
     "test": "vitest run",
+    "precheck": "node scripts/check-node.cjs",
     "check": "pnpm typecheck && pnpm lint && pnpm depcruise && pnpm test",
     "sim": "pnpm --filter @heart/server cli sim",
     "audit:run": "pnpm --filter @heart/server cli audit",
