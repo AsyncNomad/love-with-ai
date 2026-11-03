@@ -20,10 +20,10 @@ export default tseslint.config(
   },
   {
     files: ['**/*.cjs'],
-    languageOptions: { sourceType: 'commonjs', globals: { module: 'writable', require: 'readonly' } },
+    languageOptions: { sourceType: 'commonjs', globals: { module: 'writable', require: 'readonly', process: 'readonly', console: 'readonly' } },
   },
   {
-    files: ['apps/server/src/cli.ts', '**/test/**'],
+    files: ['apps/server/src/cli.ts', '**/test/**', 'scripts/**'],
     rules: { 'no-console': 'off' },
   },
 )
