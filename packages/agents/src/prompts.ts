@@ -69,6 +69,12 @@ export function conversationSection(view: ObservationView, ctx: TaskContext, roo
   return `<대화>\n${lines.join('\n')}\n</대화>`
 }
 
+/** 본인만 아는 카드·우체통 기록. 판단 작업(투표 등)에 넣는다. */
+export function privateSignalsSection(view: ObservationView, charBudget = 600): string {
+  const lines = view.privateSignals(charBudget)
+  return lines.length > 0 ? `[나만 아는 일]\n${lines.map((l) => `- ${l.line}`).join('\n')}` : ''
+}
+
 export function joinSections(...parts: string[]): string {
   return parts.filter((p) => p.length > 0).join('\n\n')
 }

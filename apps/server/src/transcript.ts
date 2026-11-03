@@ -57,6 +57,24 @@ export function renderTranscript(events: readonly AnyEvent[], config: GameConfig
       case 'LLM_OUTPUT_REJECTED':
         if (!as) lines.push(`${t} [거부] ${e.payload.task} ${e.payload.ownerId ? name(e.payload.ownerId) : ''}: ${e.payload.reasons.join(',')}`)
         break
+      case 'ACTIVITY_CHOSEN':
+        lines.push(`${t} [활동 지망] ${name(e.payload.participantId)}: ${e.payload.first} > ${e.payload.second}${e.payload.auto ? ' (자동)' : ''}`)
+        break
+      case 'SIGNAL_CARD_SENT':
+        lines.push(`${t} [카드 작성] ${name(e.payload.senderId)} → ${e.payload.targetId ? `${name(e.payload.targetId)}: ${e.payload.text}` : '보내지 않음'}`)
+        break
+      case 'SIGNAL_CARD_RECEIVED':
+        lines.push(`${t} [카드 도착] ${name(e.payload.recipientId)}: ${e.payload.text}`)
+        break
+      case 'MAILBOX_QUESTION':
+        lines.push(`${t} [우체통 질문] ${name(e.payload.askerId)} → ${name(e.payload.targetId)}: ${e.payload.text}`)
+        break
+      case 'MAILBOX_ANSWER':
+        lines.push(`${t} [우체통 답] ${name(e.payload.answererId)}: ${e.payload.text}`)
+        break
+      case 'MATCHES_COMPUTED':
+        if (!as) lines.push(`${t} [매칭] ${e.payload.pairs.map(([a, b]) => `${name(a)}·${name(b)}`).join(', ') || '없음'}`)
+        break
       case 'RUN_COMPLETED':
         lines.push('', `━━ 종료: ${e.payload.reason} ━━`)
         break

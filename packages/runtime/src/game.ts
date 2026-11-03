@@ -13,6 +13,8 @@ import type { AvatarStore, RunSink } from './ports'
 import { GameSession } from './session'
 import { castingStage } from './stages/casting'
 import { day1Stages } from './stages/day1'
+import { day2Stages } from './stages/day2'
+import { day3Stages } from './stages/day3'
 import { GameClock, type TimerHost } from './timers'
 
 export interface GameDeps {
@@ -29,7 +31,7 @@ export interface GameDeps {
 }
 
 export function defaultRegistry(): StageRegistry {
-  return new StageRegistry().register(castingStage, ...day1Stages)
+  return new StageRegistry().register(castingStage, ...day1Stages, ...day2Stages, ...day3Stages)
 }
 
 /**

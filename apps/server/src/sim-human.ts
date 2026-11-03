@@ -53,6 +53,23 @@ export class SimHuman {
       case 'resume':
         this.send({ type: 'resume' })
         break
+      case 'activity': {
+        const [first, second] = this.rng.shuffle(prompt.options)
+        if (first && second) this.send({ type: 'chooseActivity', first: first.id, second: second.id })
+        break
+      }
+      case 'card':
+        this.send({ type: 'sendCard', targetId: this.rng.chance(0.2) ? null : this.rng.pick(prompt.candidateIds), text: '오늘 이야기 즐거웠어요.' })
+        break
+      case 'mailboxAsk':
+        this.send({ type: 'askQuestion', targetId: this.rng.chance(0.2) ? null : this.rng.pick(prompt.candidateIds), text: '여기서 가장 기억에 남는 순간은 언제예요?' })
+        break
+      case 'mailboxAnswer':
+        this.send({ type: 'answerQuestion', questionId: prompt.questionId, text: '어제 밤 대화가 제일 기억에 남아요.' })
+        break
+      case 'epilogue':
+        this.send({ type: 'closeEpilogue' })
+        break
     }
     this.answered.delete(prompt.id)
   }

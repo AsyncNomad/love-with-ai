@@ -7,6 +7,9 @@ import type { House } from './house'
 import type { GameSession } from './session'
 import type { Countdown, GameClock } from './timers'
 
+/** 장면이 반응하는 PD 안내 키. 브런치·활동 방의 상황 카드다(game-rules.md §5.2). */
+export const SITUATION_CARD = 'situation_card'
+
 export interface SceneDeps {
   session: GameSession
   house: House
@@ -147,6 +150,10 @@ export class ChatScene {
       this.stop()
       return
     }
+    if (e.type === 'PD_ANNOUNCED' && e.payload.roomId === this.roomId && e.payload.key === SITUATION_CARD) {
+      this.onSituationCard()
+      return
+    }
     if (e.type !== 'MESSAGE_SENT' || e.payload.roomId !== this.roomId) return
     const speaker = e.actor
     this.recent.push({ speakerId: speaker, text: e.payload.text })
@@ -169,6 +176,15 @@ export class ChatScene {
     const responders = this.choose(k)
     if (responders.length > 0) this.humanWaitingSince = this.deps.clock.now()
     for (const r of responders) this.request(r, 'reply', Priority.P0_HUMAN_WAITING, true)
+  }
+
+  /** PD가 상황 카드(브런치·활동)를 내면 한 명이 먼저 반응하고, 몇 마디가 이어질 수 있게 한다. */
+  private onSituationCard(): void {
+    if (!this.accepting) return
+    this.chainBudget = this.config.scheduler.maxChainAfterHuman
+    const first = this.choose(1)[0]
+    if (first) this.request(first, 'reply', this.isBackground ? Priority.P4_BACKGROUND : Priority.P1_SCENE, false)
+    if (!this.isBackground) this.armIdle()
   }
 
   private onAiMessage(speaker: ParticipantId): void {

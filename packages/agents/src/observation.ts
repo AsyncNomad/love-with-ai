@@ -86,30 +86,73 @@ export class ObservationView {
     return this.state.rooms.get(roomId)?.location ?? '알 수 없는 곳'
   }
 
+  /**
+   * 이 방에서 관찰한 최근 대화. 그 방에 낸 PD 안내(브런치·활동의 상황 카드 등)도 순서대로 끼운다.
+   * 상황 카드가 대화의 맥락이 되기 때문이다.
+   */
   roomMessages(roomId: RoomId, maxCount: number, charBudget: number): ObservedMessage[] {
-    const all = this.observed().filter((e) => e.type === 'MESSAGE_SENT' && e.payload.roomId === roomId)
+    const all = this.observed().filter((e) => (e.type === 'MESSAGE_SENT' || e.type === 'PD_ANNOUNCED') && e.payload.roomId === roomId)
     const out: ObservedMessage[] = []
     let used = 0
     for (let i = all.length - 1; i >= 0 && out.length < maxCount; i--) {
-      const e = all[i] as AnyEvent & { type: 'MESSAGE_SENT' }
+      const e = all[i] as AnyEvent & { type: 'MESSAGE_SENT' | 'PD_ANNOUNCED' }
       const text = e.payload.text
       if (used + text.length > charBudget && out.length > 0) break
       used += text.length
       this.touched.add(e.seq)
-      out.unshift({ seq: e.seq, speakerId: e.actor, speakerLabel: this.label(e.actor), isSelf: e.actor === this.ownerId, text })
+      const pd = e.type === 'PD_ANNOUNCED'
+      out.unshift({ seq: e.seq, speakerId: pd ? 'pd' : e.actor, speakerLabel: pd ? 'PD 안내' : this.label(e.actor), isSelf: !pd && e.actor === this.ownerId, text })
     }
     return out
   }
 
-  /** 기억 요약용: sinceSeq 이후에 관찰한 대화·공지. */
+  /**
+   * 본인만 아는 일: 받은 익명 카드, 내가 보낸 카드, 우체통 질문과 답(game-rules.md §5.5, §6.1).
+   * 보낸 사람을 모르는 카드는 보낸 사람을 쓰지 않는다. 이벤트에도 그 값이 없다.
+   */
+  privateSignals(charBudget: number): { seq: number; line: string }[] {
+    const lines: { seq: number; line: string }[] = []
+    let used = 0
+    for (const e of this.observed()) {
+      const line = this.signalLine(e)
+      if (line === null || used + line.length > charBudget) continue
+      used += line.length
+      this.touched.add(e.seq)
+      lines.push({ seq: e.seq, line })
+    }
+    return lines
+  }
+
+  private signalLine(e: AnyEvent): string | null {
+    switch (e.type) {
+      case 'SIGNAL_CARD_RECEIVED':
+        return e.payload.recipientId === this.ownerId ? `누군가 나에게 익명 시그널 카드를 보냈다: "${e.payload.text}"` : null
+      case 'SIGNAL_CARD_SENT':
+        if (e.payload.senderId !== this.ownerId) return null
+        return e.payload.targetId ? `내가 ${this.label(e.payload.targetId)}에게 익명 시그널 카드를 보냈다: "${e.payload.text}"` : '시그널 카드를 아무에게도 보내지 않았다.'
+      case 'MAILBOX_QUESTION':
+        return e.payload.askerId === this.ownerId
+          ? `내가 우체통으로 ${this.label(e.payload.targetId)}에게 물었다: "${e.payload.text}"`
+          : `${this.label(e.payload.askerId)}이(가) 우체통으로 나에게 물었다: "${e.payload.text}"`
+      case 'MAILBOX_ANSWER':
+        return e.payload.answererId === this.ownerId ? `나는 우체통 질문에 이렇게 답했다: "${e.payload.text}"` : `${this.label(e.payload.answererId)}이(가) 내 우체통 질문에 답했다: "${e.payload.text}"`
+      default:
+        return null
+    }
+  }
+
+  /** 기억 요약·관계 평가용: sinceSeq 이후에 관찰한 대화·공지·카드·우체통. */
   observedSince(sinceSeq: number, charBudget: number): { seq: number; line: string }[] {
     const lines: { seq: number; line: string }[] = []
     let used = 0
     for (const e of this.observed()) {
       if (e.seq <= sinceSeq) continue
-      let line: string | null = null
-      if (e.type === 'MESSAGE_SENT') line = `[${this.roomLocation(e.payload.roomId)}] ${this.label(e.actor)}: ${e.payload.text}`
-      else if (e.type === 'PD_ANNOUNCED') line = `[PD 안내] ${e.payload.text}`
+      const line =
+        e.type === 'MESSAGE_SENT'
+          ? `[${this.roomLocation(e.payload.roomId)}] ${this.label(e.actor)}: ${e.payload.text}`
+          : e.type === 'PD_ANNOUNCED'
+            ? `[PD 안내] ${e.payload.text}`
+            : this.signalLine(e)
       if (line === null) continue
       if (used + line.length > charBudget) break
       used += line.length

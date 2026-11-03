@@ -30,6 +30,9 @@ const LINES = [
   '저 그런 거 은근 잘해요ㅋㅋ',
 ]
 
+const CARDS = ['아까 얘기 나눌 때 정말 편했어요. 내일도 이야기하고 싶어요.', '웃는 모습이 계속 생각나요.', '같이 걸었던 시간이 제일 좋았어요.']
+const QUESTIONS = ['여기 와서 가장 기억에 남는 순간은 언제예요?', '연애할 때 제일 중요하게 생각하는 게 뭐예요?', '저랑 이야기할 때 어떤 느낌이었어요?']
+const ANSWERS = ['솔직히 어제 밤에 나눈 대화가 제일 기억에 남아요.', '서로 편하게 이야기할 수 있는 게 제일 중요해요.', '생각보다 편해서 놀랐어요.']
 const PRIVATE_OPEN = ['둘이 얘기하니까 좀 떨리네요', '드디어 얘기해 보네요', '아까부터 궁금했어요', '여기 조용하고 좋네요']
 const WRAP = ['벌써 시간이 다 됐네요', '얘기 즐거웠어요', '다음에 또 얘기해요']
 
@@ -45,6 +48,7 @@ export const fakeResponders: Record<string, FakeResponder> = {
     const mode = req.meta.mode ?? 'reply'
     const name = req.meta.speakerName ?? ''
     if (mode === 'greeting') return { action: 'speak', text: `안녕하세요! ${givenName(name)}라고 해요. 잘 부탁드려요` }
+    if (mode === 'newcomer_greeting') return { action: 'speak', text: `안녕하세요! 오늘 새로 들어온 ${givenName(name)}예요. 잘 부탁드려요` }
     if (mode === 'open_private') return { action: 'speak', text: rng.pick(PRIVATE_OPEN) }
     if (mode === 'wrap_up') return { action: 'speak', text: rng.pick(WRAP) }
     if (mode !== 'start_topic' && rng.chance(0.12)) return { action: 'silent', text: '' }
@@ -77,6 +81,19 @@ export const fakeResponders: Record<string, FakeResponder> = {
       })),
     }
   },
+  activity_choice: (req, rng) => {
+    const [first, second] = rng.shuffle(enumAt(req.jsonSchema, ['properties', 'first']))
+    return { first, second }
+  },
+  signal_card: (req, rng) => {
+    const options = enumAt(req.jsonSchema, ['properties', 'target'])
+    return { target: rng.pick(options), text: rng.pick(CARDS) }
+  },
+  mailbox_question: (req, rng) => {
+    const options = enumAt(req.jsonSchema, ['properties', 'target'])
+    return { target: rng.pick(options), text: rng.pick(QUESTIONS) }
+  },
+  mailbox_answer: (_req, rng) => ({ text: rng.pick(ANSWERS) }),
   memory_summary: () => ({ summary: '오늘은 여러 사람과 이야기했다. 아직 누가 잘 맞는지는 모르겠다.' }),
   persona_profile: (req) => ({
     background: `${req.meta.name ?? ''}은(는) 평범한 직장 생활 속에서 취미를 찾았다.`,

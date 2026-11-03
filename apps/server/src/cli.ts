@@ -21,7 +21,7 @@ async function sim(args: string[]): Promise<number> {
     try {
       const human = i % 2 === 1 ? { ...DEFAULT_SIM_HUMAN, name: '이수빈', gender: 'female' as const } : DEFAULT_SIM_HUMAN
       const r = await runSimulation({ seed, human })
-      const bad = r.violations.length > 0 || r.completedReason !== 'schedule_end'
+      const bad = r.violations.length > 0 || r.completedReason !== 'finished'
       if (bad) failed++
       if (bad || n <= 20) {
         console.log(`${bad ? 'FAIL' : 'ok  '} ${seed} reason=${r.completedReason} virtual=${Math.round(r.virtualMs / 60000)}min events=${r.events} calls=${r.llmCalls} violations=${r.violations.length}`)

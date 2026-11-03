@@ -67,6 +67,17 @@ export const eventPayloadSchemas = {
     dropped: z.array(z.array(z.string())),
   }),
   TALK_SKIPPED: z.object({ roomId: z.string(), participantId: z.string() }),
+  /** 2일차 활동 지망(game-rules.md §5.4). 본인만 안다. */
+  ACTIVITY_CHOSEN: z.object({ participantId: z.string(), first: z.string(), second: z.string(), auto: z.boolean() }),
+  /** 시그널 카드 작성(§5.5). 보낸 사람만 안다. 유보하면 targetId가 null이다. */
+  SIGNAL_CARD_SENT: z.object({ senderId: z.string(), targetId: z.string().nullable(), text: z.string() }),
+  /** 시그널 카드 전달. 받는 사람만 보고, 보낸 사람을 가리키는 값은 어떤 필드에도 넣지 않는다. */
+  SIGNAL_CARD_RECEIVED: z.object({ recipientId: z.string(), text: z.string() }),
+  /** 시그널 우체통(§6.1). 질문자와 수신자만 안다. */
+  MAILBOX_QUESTION: z.object({ questionId: z.string(), askerId: z.string(), targetId: z.string(), text: z.string() }),
+  MAILBOX_ANSWER: z.object({ questionId: z.string(), answererId: z.string(), text: z.string() }),
+  /** 최종 매칭 계산 결과(§6.4). 발표는 PD 안내로 따로 한다. */
+  MATCHES_COMPUTED: z.object({ voteId: z.string(), pairs: z.array(z.tuple([z.string(), z.string()])) }),
   MEMORY_RECORDED: z.object({
     memoryId: z.string(),
     ownerId: z.string(),

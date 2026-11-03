@@ -1,7 +1,8 @@
 import type { GameConfig } from '@heart/shared'
+import { eventsConfig } from './events'
 import { castingPools } from './pools'
 
-export { castingPools }
+export { castingPools, eventsConfig }
 
 /** 기본 설정. 시간은 timeScale을 곱하기 전 기준값이다(game-rules.md). */
 export const defaultConfig: GameConfig = {
@@ -18,6 +19,26 @@ export const defaultConfig: GameConfig = {
     'D1_NIGHT_VOTE',
     'D1_NIGHT_TALKS',
     'D1_WRAP',
+    'D2_MORNING',
+    'D2_BRUNCH',
+    'D2_CATFISH_1',
+    'D2_FREE_TALK',
+    'D2_CATFISH_2',
+    'D2_ACTIVITY_CHOICE',
+    'D2_ACTIVITY_TALKS',
+    'D2_REGROUP',
+    'D2_SIGNAL_CARD',
+    'D2_NIGHT_VOTE',
+    'D2_NIGHT_TALKS',
+    'D2_WRAP',
+    'D3_OPENING',
+    'D3_MAILBOX',
+    'D3_DATE_CHOICE',
+    'D3_FINAL_DATES',
+    'D3_LAST_DINNER',
+    'D3_FINAL_VOTE',
+    'RESULT_REVEAL',
+    'EPILOGUE',
   ],
   composition: { originalOpposite: 3, originalSame: 2, catfishPerGender: 1 },
   ageSpread: 3,
@@ -38,6 +59,21 @@ export const defaultConfig: GameConfig = {
     endWarningMs: 15_000,
     endGraceMs: 10_000,
     wrapMs: 60_000,
+    morningTalkMs: 300_000,
+    brunchMs: 540_000,
+    catfishGreetMs: 180_000,
+    d2FreeTalkMs: 300_000,
+    activityChoiceMs: 60_000,
+    activityTalkMs: 600_000,
+    d2RegroupMs: 300_000,
+    signalCardMs: 180_000,
+    openingMs: 120_000,
+    mailboxMs: 300_000,
+    dateChoiceMs: 60_000,
+    finalDateMs: 360_000,
+    finalDateSlots: 2,
+    lastDinnerMs: 420_000,
+    revealStepMs: 4_000,
     aiWaitPauseGraceMs: 2_000,
     humanAfkMs: 60_000,
     backgroundSceneTimeoutMs: 240_000,
@@ -71,6 +107,9 @@ export const defaultConfig: GameConfig = {
     aiTalksPerAiPerNight: 2,
     aiTalkScenesPerNight: 6,
     backgroundUtterances: { min: 4, max: 6 },
+    groupBackgroundUtterances: { min: 6, max: 10 },
+    brunchGroupSize: { min: 2, max: 3 },
+    activityGroupMax: 4,
   },
   relationship: {
     initial: { interest: 35, comfort: 40, trust: 40, curiosity: 50 },
@@ -82,7 +121,7 @@ export const defaultConfig: GameConfig = {
     compatHintMinExposure: 0.25,
   },
   validation: {
-    maxChars: { group: 80, private: 120, intro: 140, card: 60 },
+    maxChars: { group: 80, private: 120, intro: 140, card: 60, mailbox: 80 },
     impersonationPatterns: [
       '^\\s*\\[?(PD|피디|제작진|시스템|공지)\\]?\\s*[:：]',
       '\\[(공지|시스템|PD)\\]',
@@ -101,6 +140,10 @@ export const defaultConfig: GameConfig = {
       self_intro: 140,
       vote: 120,
       invite_decision: 60,
+      activity_choice: 60,
+      signal_card: 120,
+      mailbox_question: 120,
+      mailbox_answer: 140,
       relationship_eval: 140,
       memory_summary: 320,
       persona_profile: 420,
@@ -119,6 +162,7 @@ export const defaultConfig: GameConfig = {
       'portrait photo of a fictional {age}-year-old Korean {person}, {hair}, wearing {outfit}, {expression}, {vibe} mood, {background}, soft natural light, 85mm lens, shallow depth of field, photorealistic',
     timeoutMs: 120_000,
   },
+  events: eventsConfig,
 }
 
 /** 개발용으로 단계 시간을 줄인 설정. */

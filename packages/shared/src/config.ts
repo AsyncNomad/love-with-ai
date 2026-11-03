@@ -17,6 +17,23 @@ export interface TimingConfig {
   endWarningMs: number
   endGraceMs: number
   wrapMs: number
+  /** 2·3일차(game-rules.md §3). */
+  morningTalkMs: number
+  brunchMs: number
+  catfishGreetMs: number
+  d2FreeTalkMs: number
+  activityChoiceMs: number
+  activityTalkMs: number
+  d2RegroupMs: number
+  signalCardMs: number
+  openingMs: number
+  mailboxMs: number
+  dateChoiceMs: number
+  finalDateMs: number
+  finalDateSlots: number
+  lastDinnerMs: number
+  /** 결과 발표 멘트 사이 간격 */
+  revealStepMs: number
   /** 사람이 AI 응답을 이보다 오래 기다리면 1:1 타이머를 멈춘다(design.md §12). */
   aiWaitPauseGraceMs: number
   humanAfkMs: number
@@ -55,6 +72,28 @@ export interface AssignmentConfig {
   aiTalksPerAiPerNight: number
   aiTalkScenesPerNight: number
   backgroundUtterances: { min: number; max: number }
+  /** 브런치·활동처럼 3명 이상이 오래 머무는 백그라운드 장면의 발언 수 */
+  groupBackgroundUtterances: { min: number; max: number }
+  brunchGroupSize: { min: number; max: number }
+  activityGroupMax: number
+}
+
+/** 2일차 활동 후보(game-rules.md §5.4). cards는 PD가 그 방에 순서대로 내는 상황 안내다. */
+export interface ActivityConfig {
+  id: string
+  name: string
+  location: string
+  description: string
+  cards: string[]
+}
+
+export interface EventsConfig {
+  activities: ActivityConfig[]
+  /** 브런치 상황 카드(§5.2). 방마다 cardsPerRoom장을 뽑는다. */
+  brunchCards: string[]
+  brunchCardsPerRoom: number
+  brunchLocations: string[]
+  dateLocations: string[]
 }
 
 export interface RelationshipConfig {
@@ -68,7 +107,7 @@ export interface RelationshipConfig {
 }
 
 export interface ValidationConfig {
-  maxChars: { group: number; private: number; intro: number; card: number }
+  maxChars: { group: number; private: number; intro: number; card: number; mailbox: number }
   impersonationPatterns: string[]
   repetitionThreshold: number
   repetitionWindow: number
@@ -139,4 +178,5 @@ export interface GameConfig {
   llm: LlmConfig
   pools: CastingPools
   image: ImageConfig
+  events: EventsConfig
 }

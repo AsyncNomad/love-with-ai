@@ -52,6 +52,23 @@ export type PromptView =
   | { id: string; kind: 'invite'; voteId: string; candidateIds: string[]; maxAccept: number }
   | { id: string; kind: 'intro'; maxChars: number }
   | { id: string; kind: 'resume'; reason: string }
+  | { id: string; kind: 'activity'; options: { id: string; name: string; description: string }[] }
+  | { id: string; kind: 'card'; candidateIds: string[]; maxChars: number }
+  | { id: string; kind: 'mailboxAsk'; candidateIds: string[]; maxChars: number }
+  | { id: string; kind: 'mailboxAnswer'; questionId: string; askerId: string; question: string; maxChars: number }
+  | { id: string; kind: 'epilogue'; epilogue: EpilogueView }
+
+/** 에필로그(game-rules.md §6.5). 사람이 볼 수 있는 정보만 담는다. */
+export interface EpilogueView {
+  /** 사람 본인의 날짜별 선택 */
+  myChoices: { label: string; targetId: string | null }[]
+  /** 사람의 최종 선택과, 그 상대의 최종 선택(공개 규칙 §6.4) */
+  finalPick: string | null
+  partnerPick: string | null
+  matched: boolean
+  /** 성사된 커플 전체 */
+  couples: [string, string][]
+}
 
 export interface TimerView {
   label: string
@@ -156,6 +173,11 @@ export const commandSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('submitIntro'), text: z.string().trim().min(1).max(200) }),
   z.object({ type: z.literal('skipTalk'), roomId: z.string() }),
   z.object({ type: z.literal('resume') }),
+  z.object({ type: z.literal('chooseActivity'), first: z.string(), second: z.string() }),
+  z.object({ type: z.literal('sendCard'), targetId: z.string().nullable(), text: z.string().trim().max(200) }),
+  z.object({ type: z.literal('askQuestion'), targetId: z.string().nullable(), text: z.string().trim().max(200) }),
+  z.object({ type: z.literal('answerQuestion'), questionId: z.string(), text: z.string().trim().min(1).max(200) }),
+  z.object({ type: z.literal('closeEpilogue') }),
 ])
 export type Command = z.infer<typeof commandSchema>
 

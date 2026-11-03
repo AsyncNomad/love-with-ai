@@ -1,6 +1,6 @@
-import type { GameConfig, StageId } from '@heart/shared'
+import type { GameConfig, ParticipantId, StageId } from '@heart/shared'
 import { STAGE_META } from '@heart/shared'
-import type { SlotPlan, Rng } from '@heart/engine'
+import type { ActivityGroup, SlotPlan, Rng } from '@heart/engine'
 import type { AgentService } from './agent-service'
 import type { ChatScene} from './chat-scene';
 import { type SceneOptions } from './chat-scene'
@@ -20,6 +20,11 @@ export interface SharedState {
   votes: Partial<Record<StageId, string>>
   plans: Partial<Record<StageId, SlotPlan>>
   dayStartSeq: number
+  /** 메기 입장 순서(시드로 정한다, game-rules.md §5.3) */
+  catfishOrder?: ParticipantId[]
+  activityGroups?: ActivityGroup[]
+  /** 최종 결과(RESULT_REVEAL → EPILOGUE) */
+  result?: { pairs: [ParticipantId, ParticipantId][]; humanPick: ParticipantId | null; partnerPick: ParticipantId | null }
 }
 
 export interface StageContext {
@@ -113,19 +118,24 @@ export class Director {
     private readonly registry: StageRegistry,
   ) {}
 
+  /** 일정을 끝까지 돌면 'finished', 핸들러가 없는 단계에서 멈추면 'schedule_end'로 끝난다. */
   async run(): Promise<void> {
     const { session, config, house } = this.ctx
+    let complete = true
     for (const stageId of config.schedule) {
       if (session.state.status === 'completed') return
       const handler = this.registry.get(stageId)
-      if (!handler) break
+      if (!handler) {
+        complete = false
+        break
+      }
       session.commit({ type: 'STAGE_STARTED', payload: { stage: stageId, simTime: STAGE_META[stageId].simTime }, visibility: { kind: 'house' } })
       await handler.run(this.ctx)
     }
     if (session.state.status !== 'completed') {
       this.ctx.shared.living?.stop()
-      house.announce('not_implemented', PD.notImplemented())
-      session.commit({ type: 'RUN_COMPLETED', payload: { reason: 'schedule_end' }, visibility: { kind: 'house' } })
+      if (!complete) house.announce('not_implemented', PD.notImplemented())
+      session.commit({ type: 'RUN_COMPLETED', payload: { reason: complete ? 'finished' : 'schedule_end' }, visibility: { kind: 'house' } })
     }
   }
 }

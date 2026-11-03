@@ -113,7 +113,7 @@ export function App() {
       {connection === 'open' && view.status === 'paused' && view.pauseReason === 'disconnected' && <Banner text="일시정지됨" />}
       {view.status === 'completed' && (
         <Banner
-          text={view.completedReason === 'crashed' ? '오류로 게임이 중단됐어요.' : '오늘의 일정이 모두 끝났어요.'}
+          text={view.completedReason === 'crashed' ? '오류로 게임이 중단됐어요.' : view.completedReason === 'finished' ? '하트 하우스의 모든 일정이 끝났어요.' : '준비된 일정이 모두 끝났어요.'}
           action={{ label: '새 게임', onClick: () => setDismissedRun(view.runId) }}
         />
       )}

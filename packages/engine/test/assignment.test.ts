@@ -1,6 +1,6 @@
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
-import { firstImpressionRequests, humanTalkTargets, inviteCandidates, mutualPairs, packSlots, planNightTalks } from '../src'
+import { activityGroups, brunchGroups, createRng, firstImpressionRequests, humanTalkTargets, inviteCandidates, mutualPairs, packSlots, pairKey, planFinalDates, planNightTalks } from '../src'
 
 const H = 'h'
 const IDS = [H, 'f1', 'f2', 'f3', 'm1', 'm2']
@@ -84,5 +84,83 @@ describe('planNightTalks (properties)', () => {
     const plan = planNightTalks(ballots, H, { perAi: 1, totalAiScenes: 1, minSlots: 1 })
     expect(plan.slots.flat().map((r) => r.members)).toEqual([['f1', 'm1']])
     expect(plan.dropped.length).toBe(2)
+  })
+})
+
+describe('brunchGroups (game-rules §5.2)', () => {
+  const members = [
+    { id: 'h', gender: 'male' as const },
+    { id: 'm1', gender: 'male' as const },
+    { id: 'm2', gender: 'male' as const },
+    { id: 'f1', gender: 'female' as const },
+    { id: 'f2', gender: 'female' as const },
+    { id: 'f3', gender: 'female' as const },
+  ]
+  it('splits into 2-3 person mixed groups and keeps night pairs apart', () => {
+    fc.assert(
+      fc.property(fc.string(), (seed) => {
+        const avoid = new Set([pairKey('h', 'f1'), pairKey('m1', 'f2')])
+        const groups = brunchGroups(members, avoid, createRng(seed), 3)
+        expect(groups.flat().sort()).toEqual(members.map((m) => m.id).sort())
+        for (const g of groups) {
+          expect(g.length).toBeGreaterThanOrEqual(2)
+          expect(g.length).toBeLessThanOrEqual(3)
+          expect(!(g.includes('h') && g.includes('f1'))).toBe(true)
+          expect(!(g.includes('m1') && g.includes('f2'))).toBe(true)
+        }
+      }),
+      { numRuns: 100 },
+    )
+  })
+  it('is deterministic for a seed', () => {
+    expect(brunchGroups(members, new Set(), createRng('s'), 3)).toEqual(brunchGroups(members, new Set(), createRng('s'), 3))
+  })
+})
+
+describe('activityGroups (game-rules §5.4)', () => {
+  const acts = ['a', 'b', 'c', 'd']
+  const order = ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8']
+  it('puts everyone in exactly one group of 2..max', () => {
+    fc.assert(
+      fc.property(fc.array(fc.tuple(fc.constantFrom(...acts), fc.constantFrom(...acts)), { minLength: 8, maxLength: 8 }), (choices) => {
+        const picks = new Map(order.map((id, i) => [id, { first: choices[i]![0], second: choices[i]![1] }]))
+        const groups = activityGroups(order, picks, 4)
+        expect(groups.flatMap((g) => g.members).sort()).toEqual([...order].sort())
+        for (const g of groups) expect(g.members.length).toBeGreaterThanOrEqual(2)
+        for (const g of groups) expect(g.members.length).toBeLessThanOrEqual(5)
+      }),
+      { numRuns: 300 },
+    )
+  })
+  it('splits an oversized group and moves a single to their second choice', () => {
+    const picks = new Map([
+      ['p1', { first: 'a', second: 'b' }],
+      ['p2', { first: 'a', second: 'b' }],
+      ['p3', { first: 'a', second: 'b' }],
+      ['p4', { first: 'a', second: 'b' }],
+      ['p5', { first: 'a', second: 'b' }],
+      ['p6', { first: 'c', second: 'a' }],
+    ])
+    const groups = activityGroups(['p1', 'p2', 'p3', 'p4', 'p5', 'p6'], picks, 4)
+    expect(groups.map((g) => g.members.length).sort()).toEqual([3, 3])
+    expect(groups.every((g) => g.activityId === 'a')).toBe(true)
+  })
+})
+
+describe('planFinalDates (game-rules §8.4)', () => {
+  it('always schedules the human pick and never double-books', () => {
+    fc.assert(
+      fc.property(ballotArb, (ballots) => {
+        const plan = planFinalDates(ballots, H, 2)
+        for (const slot of plan.slots) {
+          const members = slot.flatMap((r) => r.members)
+          expect(new Set(members).size).toBe(members.length)
+        }
+        const pick = ballots.get(H) ?? null
+        if (pick !== null) expect(plan.slots.flat().some((r) => r.members.includes(H) && r.members.includes(pick))).toBe(true)
+        expect(plan.slots.length).toBeLessThanOrEqual(2)
+      }),
+      { numRuns: 500 },
+    )
   })
 })

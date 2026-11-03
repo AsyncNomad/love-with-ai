@@ -4,7 +4,16 @@ import { applyEvent, canObserve, containsName, createRunState, knownNameIds, typ
 import { foldOptionsFor } from './session'
 
 export interface Violation {
-  rule: 'future_event' | 'unobservable_event' | 'foreign_memory' | 'canary_in_prompt' | 'canary_in_output' | 'memory_source_unobservable' | 'vote_visibility'
+  rule:
+    | 'future_event'
+    | 'unobservable_event'
+    | 'foreign_memory'
+    | 'canary_in_prompt'
+    | 'canary_in_output'
+    | 'memory_source_unobservable'
+    | 'vote_visibility'
+    | 'card_sender_leak'
+    | 'private_visibility'
   detail: string
 }
 
@@ -53,6 +62,26 @@ export function auditRun(events: readonly AnyEvent[], deliveries: readonly Deliv
         const src = state.events[s - 1]
         if (src && !canObserve(state, e.payload.ownerId, src)) out.push({ rule: 'memory_source_unobservable', detail: `memory ${e.payload.memoryId} cites #${s}` })
       }
+    }
+    // 익명 카드(game-rules.md §5.5): 받는 사람에게만 보이고, 본문에 보낸 사람 이름이 없어야 한다.
+    if (e.type === 'SIGNAL_CARD_RECEIVED') {
+      const v = e.visibility
+      if (v.kind !== 'participants' || v.ids.length !== 1 || v.ids[0] !== e.payload.recipientId) out.push({ rule: 'private_visibility', detail: `card #${e.seq} is visible beyond the recipient` })
+      for (const s of state.events) {
+        if (s.type !== 'SIGNAL_CARD_SENT' || s.payload.targetId !== e.payload.recipientId || s.payload.text !== e.payload.text) continue
+        const sender = state.participants.get(s.payload.senderId)?.cast.name
+        if (sender && containsName(e.payload.text, sender)) out.push({ rule: 'card_sender_leak', detail: `card #${e.seq} names its sender` })
+      }
+    }
+    if (e.type === 'SIGNAL_CARD_SENT' || e.type === 'ACTIVITY_CHOSEN') {
+      const owner = e.type === 'SIGNAL_CARD_SENT' ? e.payload.senderId : e.payload.participantId
+      const v = e.visibility
+      if (v.kind !== 'participants' || v.ids.length !== 1 || v.ids[0] !== owner) out.push({ rule: 'private_visibility', detail: `${e.type} #${e.seq} is visible beyond its owner` })
+    }
+    if (e.type === 'MAILBOX_QUESTION') {
+      const v = e.visibility
+      const ok = v.kind === 'participants' && v.ids.length === 2 && v.ids.includes(e.payload.askerId) && v.ids.includes(e.payload.targetId)
+      if (!ok) out.push({ rule: 'private_visibility', detail: `mailbox question #${e.seq} is visible beyond the pair` })
     }
     if (e.type === 'VOTE_COMMITTED') {
       const v = e.visibility

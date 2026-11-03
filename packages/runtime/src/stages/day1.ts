@@ -1,9 +1,10 @@
-import { ballotsOf, firstImpressionRequests, packSlots, planNightTalks } from '@heart/engine'
+import { ballotsOf, firstImpressionRequests, packSlots } from '@heart/engine'
 import type { StageHandler } from '../director'
 import { LIVING_ROOM } from '../house'
-import { PD, formatMinutes } from '../pd'
+import { PD } from '../pd'
 import { Priority } from '../gpu-queue'
-import { collectInvites, enteredAiIds, reflectOnLiving, runTalkSlot, runVote, startLiving, stopLiving } from './common'
+import { collectInvites, enteredAiIds, runTalkSlot, runVote, startLiving, stopLiving } from './common'
+import { livingStage, nightTalksStage, nightVoteStage, wrapStage } from './routines'
 
 /** game-rules.md §4: 1일차 단계 핸들러. */
 
@@ -35,18 +36,14 @@ const arrival: StageHandler = {
   },
 }
 
-const freeTalk: StageHandler = {
-  id: 'D1_FREE_TALK',
-  async run(ctx) {
-    const ms = ctx.scaled(ctx.config.timing.freeTalkMs)
-    ctx.house.announce('free_talk', PD.freeTalk(formatMinutes(ms)))
-    if (!ctx.shared.living) startLiving(ctx)
-    await ctx.countdown('자유 대화', ms).promise
-    ctx.house.announce('free_talk_end', PD.freeTalkEnd())
-    stopLiving(ctx)
-    reflectOnLiving(ctx, ctx.shared.dayStartSeq, '첫 만남과 자유 대화')
-  },
-}
+const freeTalk = livingStage('D1_FREE_TALK', {
+  timerLabel: '자유 대화',
+  ms: (t) => t.freeTalkMs,
+  announce: PD.freeTalk,
+  endAnnounce: PD.freeTalkEnd,
+  reflect: '첫 만남과 자유 대화',
+  reflectSince: 'day',
+})
 
 const firstVote: StageHandler = {
   id: 'D1_FIRST_VOTE',
@@ -90,15 +87,7 @@ const firstTalks: StageHandler = {
   },
 }
 
-const regroup: StageHandler = {
-  id: 'D1_REGROUP',
-  async run(ctx) {
-    ctx.house.announce('regroup', PD.regroup())
-    startLiving(ctx)
-    await ctx.countdown('휴식', ctx.scaled(ctx.config.timing.regroupMs)).promise
-    stopLiving(ctx)
-  },
-}
+const regroup = livingStage('D1_REGROUP', { timerLabel: '휴식', ms: (t) => t.regroupMs, announce: () => PD.regroup() })
 
 const introduction: StageHandler = {
   id: 'D1_INTRODUCTION',
@@ -128,64 +117,10 @@ const introduction: StageHandler = {
   },
 }
 
-const eveningTalk: StageHandler = {
-  id: 'D1_EVENING_TALK',
-  async run(ctx) {
-    const ms = ctx.scaled(ctx.config.timing.eveningTalkMs)
-    const since = ctx.session.state.lastSeq
-    ctx.house.announce('evening_talk', PD.eveningTalk(formatMinutes(ms)))
-    startLiving(ctx)
-    await ctx.countdown('저녁 대화', ms).promise
-    stopLiving(ctx)
-    reflectOnLiving(ctx, since, '저녁 자기소개와 대화')
-  },
-}
+const eveningTalk = livingStage('D1_EVENING_TALK', { timerLabel: '저녁 대화', ms: (t) => t.eveningTalkMs, announce: PD.eveningTalk, reflect: '저녁 자기소개와 대화' })
 
-const nightVote: StageHandler = {
-  id: 'D1_NIGHT_VOTE',
-  async run(ctx) {
-    stopLiving(ctx)
-    ctx.house.announce('night_vote', PD.nightVote())
-    await ctx.agents.flushBackground()
-    await runVote(ctx, 'D1_NIGHT_VOTE', 'night', '심야 선택', '오늘 밤 더 이야기하고 싶은 이성 한 명을 골라 주세요. 선택은 비공개입니다.')
-  },
-}
-
-const nightTalks: StageHandler = {
-  id: 'D1_NIGHT_TALKS',
-  async run(ctx) {
-    const voteId = ctx.shared.votes.D1_NIGHT_VOTE
-    if (!voteId) throw new Error('night vote missing')
-    const human = ctx.human.humanId
-    const a = ctx.config.assignment
-    const plan = planNightTalks(ballotsOf(ctx.session.state, voteId), human, {
-      perAi: a.aiTalksPerAiPerNight,
-      totalAiScenes: a.aiTalkScenesPerNight,
-      minSlots: ctx.config.timing.minNightSlots,
-    })
-    ctx.session.commit({
-      type: 'TALKS_PLANNED',
-      payload: { stage: 'D1_NIGHT_TALKS', slots: plan.slots.map((s) => s.map((r) => ({ members: r.members, required: r.required }))), dropped: plan.dropped.map((r) => r.members) },
-      visibility: { kind: 'server' },
-    })
-    const humanHasTalk = plan.slots.some((s) => s.some((r) => r.members.includes(human)))
-    ctx.house.announce('night_talks', PD.nightTalks())
-    if (!humanHasTalk) ctx.house.announce('no_night_talk', PD.noNightTalk(), { to: [human] })
-    for (const slot of plan.slots) {
-      await runTalkSlot(ctx, slot, { durationMs: ctx.scaled(ctx.config.timing.nightTalkMs), label: '심야 대화', idleNotice: humanHasTalk ? PD.idleSlot() : null })
-    }
-  },
-}
-
-const wrap: StageHandler = {
-  id: 'D1_WRAP',
-  async run(ctx) {
-    stopLiving(ctx)
-    ctx.house.announce('wrap', PD.wrap(1))
-    for (const id of enteredAiIds(ctx)) ctx.agents.summarizeLater(id, ctx.shared.dayStartSeq, '첫째 날')
-    const timer = ctx.countdown('하루 마무리', ctx.scaled(ctx.config.timing.wrapMs))
-    await Promise.all([timer.promise, ctx.agents.flushBackground(Priority.P3_PD)])
-  },
-}
+const nightVote = nightVoteStage('D1_NIGHT_VOTE')
+const nightTalks = nightTalksStage('D1_NIGHT_TALKS', 'D1_NIGHT_VOTE')
+const wrap = wrapStage('D1_WRAP', 1, '첫째 날')
 
 export const day1Stages: StageHandler[] = [arrival, freeTalk, firstVote, firstInvites, firstTalks, regroup, introduction, eveningTalk, nightVote, nightTalks, wrap]

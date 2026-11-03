@@ -3,7 +3,7 @@ import type { ParticipantId, VoteKind } from '@heart/shared'
 import { compatHint } from '@heart/engine'
 import { ObservationView } from '../observation'
 import { relationshipDetail } from '../persona-text'
-import { COMMON_RULES, joinSections, personaSection } from '../prompts'
+import { COMMON_RULES, joinSections, personaSection, privateSignalsSection } from '../prompts'
 import type { TaskContext, TaskSpec } from '../task'
 import { hasForeignScript } from '../validate'
 
@@ -17,10 +17,11 @@ const ABSTAIN = '선택하지 않음'
 const VOTE_PROMPTS: Record<VoteKind, { title: string; ask: string }> = {
   first_impression: { title: '첫인상 선택', ask: '지금까지 본 사람 중 첫인상이 가장 좋았던 이성 한 명을 골라라.' },
   night: { title: '심야 선택', ask: '오늘 밤 더 이야기해 보고 싶은 이성 한 명을 골라라.' },
+  date: { title: '마지막 데이트 선택', ask: '마지막 날 단둘이 데이트하고 싶은 이성 한 명을 골라라.' },
   final: { title: '최종 선택', ask: '3일을 돌아보고 최종적으로 마음이 가는 이성 한 명을 골라라. 끝까지 마음이 가는 사람이 없으면 선택하지 않아도 된다.' },
 }
 
-function candidateLines(view: ObservationView, ctx: TaskContext, ids: readonly ParticipantId[]): { lines: string; nameToId: Map<string, ParticipantId> } {
+export function candidateLines(view: ObservationView, ctx: TaskContext, ids: readonly ParticipantId[]): { lines: string; nameToId: Map<string, ParticipantId> } {
   const nameToId = new Map<string, ParticipantId>()
   const lines = ids.map((id) => {
     const k = view.known(id)
@@ -71,6 +72,7 @@ export const voteTask: TaskSpec<VoteInput, { choice: string; reason: string }, V
     const user = joinSections(
       `[${p.title}]\n${p.ask}\n네 성격, 가치관, 실제로 나눈 대화를 근거로 판단한다. 모두를 좋게 볼 필요는 없다.\n아직 확신이 없어도 조금이라도 더 끌리는 사람이 있으면 그 사람을 고른다. 아무에게도 전혀 마음이 가지 않을 때만 "${ABSTAIN}"를 고른다.`,
       `[후보]\n${lines}`,
+      privateSignalsSection(view),
       past.length > 0 ? `[내가 이전에 고른 사람]\n${past.join('\n')}` : '',
     )
     return { system, user, view, meta: { kind: i.kind, voterName: view.self().cast.name } }

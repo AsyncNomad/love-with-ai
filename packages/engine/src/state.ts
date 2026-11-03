@@ -301,6 +301,12 @@ export function applyEvent(state: RunState, event: AnyEvent, opts: FoldOptions):
       state.completedReason = event.payload.reason
       break
     case 'INVITE_DECIDED':
+    case 'ACTIVITY_CHOSEN':
+    case 'SIGNAL_CARD_SENT':
+    case 'SIGNAL_CARD_RECEIVED':
+    case 'MAILBOX_QUESTION':
+    case 'MAILBOX_ANSWER':
+    case 'MATCHES_COMPUTED':
     case 'TALKS_PLANNED':
     case 'TALK_SKIPPED':
     case 'LLM_OUTPUT_REJECTED':

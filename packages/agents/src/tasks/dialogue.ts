@@ -5,7 +5,7 @@ import { COMMON_RULES, conversationSection, joinSections, memorySection, peopleS
 import type { TaskSpec } from '../task'
 import { checkDialogue, fitLength, fixAddress, limitLaughter, normalizeUtterance } from '../validate'
 
-export type DialogueMode = 'reply' | 'start_topic' | 'greeting' | 'open_private' | 'wrap_up' | 'follow_up'
+export type DialogueMode = 'reply' | 'start_topic' | 'greeting' | 'newcomer_greeting' | 'open_private' | 'wrap_up' | 'follow_up'
 
 export interface DialogueInput {
   speakerId: ParticipantId
@@ -24,6 +24,7 @@ const INSTRUCTIONS: Record<DialogueMode, string> = {
   follow_up: '방금 나온 말에 자연스럽게 이어서 한 마디 해라. 굳이 할 말이 없으면 침묵해라.',
   start_topic: '대화가 잠시 끊겼다. 지금 장소나 방금까지 나온 얘기와 이어지는 가벼운 화제를 꺼내라. 이미 나온 얘기를 반복하지 마라.',
   greeting: '방금 숙소 거실에 처음 들어왔다. 먼저 와 있던 사람들에게 "안녕하세요"로 짧게 인사하고 이름을 말해라. 나이나 직업은 아직 말하지 않는다.',
+  newcomer_greeting: '둘째 날 새 입주자로 숙소 거실에 들어왔다. 먼저 와 있던 사람들에게 "안녕하세요"로 인사하고 이름, 나이, 직업을 짧게 소개해라.',
   open_private: '단둘이 이야기할 시간이 생겼다. 상대에게 먼저 가볍게 말을 걸어라.',
   wrap_up: '대화 시간이 곧 끝난다. 새 화제를 꺼내지 말고 자연스럽게 마무리하는 말을 해라.',
 }
@@ -38,7 +39,7 @@ export const dialogueTask: TaskSpec<DialogueInput, { action: 'speak' | 'silent';
   },
   maxTokens: (ctx) => ctx.config.llm.maxTokens.dialogue ?? 120,
   schema: (i) => {
-    const mustSpeak = i.mode === 'greeting' || i.mode === 'open_private'
+    const mustSpeak = i.mode === 'greeting' || i.mode === 'newcomer_greeting' || i.mode === 'open_private'
     return z.object({
       action: mustSpeak ? z.literal('speak') : z.enum(['speak', 'silent']),
       text: z.string().max(240),

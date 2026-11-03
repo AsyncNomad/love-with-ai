@@ -118,8 +118,35 @@ export class HumanViewProjector {
         this.bumpRoom(roomId, e.seq)
         return
       }
+      case 'SIGNAL_CARD_SENT':
+      case 'SIGNAL_CARD_RECEIVED':
+      case 'MAILBOX_QUESTION':
+      case 'MAILBOX_ANSWER': {
+        // 사람이 보낸·받은 카드와 우체통은 PD 안내 방에 남긴다. 받은 카드에는 보낸 사람이 없다.
+        const text = this.privateLine(e, human)
+        if (!text) return
+        this.emit({ type: 'message', message: { seq: e.seq, roomId: PD_ROOM_ID, senderId: null, kind: 'pd', text, simTime: e.simTime } })
+        this.bumpRoom(PD_ROOM_ID, e.seq)
+        return
+      }
       default:
         return
+    }
+  }
+
+  private privateLine(e: AnyEvent, human: string): string | null {
+    const name = (id: string): string => knownProfile(this.session.state, human, id).name ?? '누군가'
+    switch (e.type) {
+      case 'SIGNAL_CARD_SENT':
+        return e.payload.targetId ? `${name(e.payload.targetId)} 님에게 시그널 카드를 보냈습니다. "${e.payload.text}"` : null
+      case 'SIGNAL_CARD_RECEIVED':
+        return `익명의 시그널 카드가 도착했습니다. "${e.payload.text}"`
+      case 'MAILBOX_QUESTION':
+        return e.payload.askerId === human ? `${name(e.payload.targetId)} 님에게 질문을 보냈습니다. "${e.payload.text}"` : `${name(e.payload.askerId)} 님이 우체통으로 질문을 보냈습니다. "${e.payload.text}"`
+      case 'MAILBOX_ANSWER':
+        return e.payload.answererId === human ? `답장을 보냈습니다. "${e.payload.text}"` : `${name(e.payload.answererId)} 님의 답장: "${e.payload.text}"`
+      default:
+        return null
     }
   }
 

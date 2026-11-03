@@ -56,6 +56,11 @@ export function drive(opts: DriveOptions): Promise<string> {
           else if (p.kind === 'invite') send({ type: 'respondInvite', voteId: p.voteId, acceptIds: p.candidateIds.slice(0, 1) })
           else if (p.kind === 'intro') send({ type: 'submitIntro', text: '안녕하세요, 영화랑 러닝 좋아하는 사람이에요. 잘 부탁드려요!' })
           else if (p.kind === 'resume') send({ type: 'resume' })
+          else if (p.kind === 'activity') send({ type: 'chooseActivity', first: p.options[0]?.id ?? '', second: p.options[1]?.id ?? '' })
+          else if (p.kind === 'card') send({ type: 'sendCard', targetId: p.candidateIds[0] ?? null, text: '같이 이야기한 시간이 제일 즐거웠어요.' })
+          else if (p.kind === 'mailboxAsk') send({ type: 'askQuestion', targetId: p.candidateIds[0] ?? null, text: '여기서 가장 기억에 남는 순간은 언제예요?' })
+          else if (p.kind === 'mailboxAnswer') send({ type: 'answerQuestion', questionId: p.questionId, text: '어제 밤에 나눈 대화가 제일 기억에 남아요.' })
+          else if (p.kind === 'epilogue') send({ type: 'closeEpilogue' })
         }, 1500)
       }
       // 같은 선택 창에 두 번 답하지 않도록, 창이 사라진 뒤에만 잊는다.

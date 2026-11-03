@@ -1,6 +1,6 @@
 import type { ParticipantId, StageId, VoteKind } from '@heart/shared'
 import { ballotsOf, inviteCandidates, oppositeGenderRule, type TalkRequest } from '@heart/engine'
-import type { ChatScene } from '../chat-scene'
+import { SITUATION_CARD, type ChatScene } from '../chat-scene'
 import type { StageContext } from '../director'
 import { LIVING_ROOM } from '../house'
 import { PD, formatMinutes } from '../pd'
@@ -43,11 +43,16 @@ export function reflectOnLiving(ctx: StageContext, sinceSeq: number, label: stri
   }
 }
 
+export interface VoteOptions {
+  /** 제한 시간(timeScale 적용 전). null이면 사람이 제출할 때까지 기다린다(최종 선택, game-rules.md §6.4). */
+  timeoutMs?: number | null
+}
+
 /**
  * 비공개 투표 하나(game-rules.md §7). AI는 P2로 동시에 큐에 넣고, 사람에게는 선택 창을 띄운다.
- * 사람이 시간 안에 고르지 않으면 유보로 확정한다(최종 선택은 예외, Day 3에서 다룬다).
+ * 사람이 시간 안에 고르지 않으면 유보로 확정한다. 최종 선택은 시간 제한 없이 기다린다.
  */
-export async function runVote(ctx: StageContext, stage: StageId, kind: VoteKind, title: string, description: string): Promise<string> {
+export async function runVote(ctx: StageContext, stage: StageId, kind: VoteKind, title: string, description: string, opts: VoteOptions = {}): Promise<string> {
   const { session } = ctx
   const voteId = `vote_${stage}`
   session.commit({ type: 'VOTE_OPENED', payload: { voteId, kind }, visibility: { kind: 'house' }, idempotencyKey: voteId })
@@ -67,12 +72,13 @@ export async function runVote(ctx: StageContext, stage: StageId, kind: VoteKind,
         idempotencyKey: `vote:${voteId}:${human}`,
       })
     })
-  const timer = ctx.countdown(title, ctx.scaled(ctx.config.timing.voteMs))
-  await Promise.race([timer.promise, Promise.all([aiDone, humanDone])])
-  if (!humanAnswered) ctx.human.expire('vote', voteId)
+  const timeoutMs = opts.timeoutMs === undefined ? ctx.config.timing.voteMs : opts.timeoutMs
+  const timer = timeoutMs === null ? null : ctx.countdown(title, ctx.scaled(timeoutMs))
+  await Promise.race([...(timer ? [timer.promise] : []), Promise.all([aiDone, humanDone])])
+  if (!humanAnswered) ctx.human.expire(`vote:${voteId}`)
   await humanDone
   await aiDone
-  timer.cancel()
+  timer?.cancel()
   session.commit({ type: 'VOTE_CLOSED', payload: { voteId }, visibility: { kind: 'house' } })
   ctx.house.announce('vote_closed', PD.voteClosed())
   return voteId
@@ -107,7 +113,7 @@ export async function collectInvites(ctx: StageContext, voteId: string): Promise
   const all = Promise.all(jobs)
   const timer = ctx.countdown('대화 초대', ctx.scaled(ctx.config.timing.inviteMs))
   await Promise.race([timer.promise, all])
-  if (!humanAnswered) ctx.human.expire('invite', voteId)
+  if (!humanAnswered) ctx.human.expire(`invite:${voteId}`)
   await all
   timer.cancel()
   return accepted
@@ -118,6 +124,26 @@ interface TalkRoom {
   members: ParticipantId[]
   openSeq: number
   scene: ChatScene
+  cards: string[]
+}
+
+/** 사람이 있는 방에 남은 상황 카드를 대화 시간 동안 고르게 나눠 낸다. */
+function scheduleCards(ctx: StageContext, room: TalkRoom, durationMs: number): { cancel(): void }[] {
+  const rest = room.cards.slice(1)
+  return rest.map((text, i) => {
+    // Countdown.cancel()은 promise를 resolve하므로 취소 여부를 따로 기억한다.
+    let cancelled = false
+    const wait = ctx.clock.wait(Math.round((durationMs * (i + 1)) / (rest.length + 1)))
+    void wait.promise.then(() => {
+      if (!cancelled && ctx.house.isOpen(room.roomId)) ctx.house.announce(SITUATION_CARD, text, { roomId: room.roomId })
+    })
+    return {
+      cancel: () => {
+        cancelled = true
+        wait.cancel()
+      },
+    }
+  })
 }
 
 export interface SlotOptions {
@@ -125,6 +151,15 @@ export interface SlotOptions {
   label: string
   /** 사람이 이번 슬롯에 방이 없을 때 보낼 개인 안내 */
   idleNotice: string | null
+  /** 방 장소. 없으면 하우스의 비공개 장소를 돌아가며 쓴다. */
+  locationOf?: (req: TalkRequest, index: number) => string
+  /**
+   * PD 상황 카드(브런치·활동, game-rules.md §5.2). 첫 카드는 방이 열릴 때 내고, 사람이 있는 방에는
+   * 나머지를 대화 시간 동안 고르게 나눠 낸다. 백그라운드 방은 첫 카드만 받는다(발언 수가 정해진 짧은 장면이라서).
+   */
+  cardsOf?: (req: TalkRequest, index: number) => string[]
+  /** 백그라운드 장면 발언 수. 없으면 config.assignment.backgroundUtterances */
+  utterances?: { min: number; max: number }
 }
 
 /**
@@ -136,26 +171,31 @@ export async function runTalkSlot(ctx: StageContext, slot: readonly TalkRequest[
   const human = ctx.human.humanId
   const rng = ctx.rng
   const rooms: TalkRoom[] = []
-  for (const req of slot) {
-    const roomId = house.openRoom(req.members.length === 2 ? 'private' : 'group')
+  slot.forEach((req, index) => {
+    const roomId = house.openRoom(req.members.length === 2 ? 'private' : 'group', opts.locationOf?.(req, index))
     const openSeq = session.state.lastSeq
     for (const m of req.members) house.moveTo(roomId, m)
     house.announce('talk_start', PD.talkStart(formatMinutes(opts.durationMs)), { roomId })
-    rooms.push({ roomId, members: req.members, openSeq, scene: null as unknown as ChatScene })
-  }
+    const cards = opts.cardsOf?.(req, index) ?? []
+    if (cards[0]) house.announce(SITUATION_CARD, cards[0], { roomId })
+    rooms.push({ roomId, members: req.members, openSeq, scene: null as unknown as ChatScene, cards })
+  })
   const humanRoom = rooms.find((r) => r.members.includes(human)) ?? null
-  const { min, max } = config.assignment.backgroundUtterances
+  const { min, max } = opts.utterances ?? config.assignment.backgroundUtterances
   for (const r of rooms) {
     const ais = r.members.filter((m) => m !== human)
+    // 상황 카드가 있으면 첫 발언은 카드에 대한 반응이다. 그 밖에는 둘이면 말 걸기, 셋 이상이면 화제 꺼내기.
+    const openerMode = r.cards.length > 0 ? 'reply' : r.members.length === 2 ? 'open_private' : 'start_topic'
     r.scene = ctx
       .scene({
         roomId: r.roomId,
         mode: r === humanRoom ? 'live' : 'background',
         targetUtterances: rng.int(min, max),
-        opener: { speakerId: rng.pick(ais), mode: 'open_private' },
+        opener: { speakerId: rng.pick(ais), mode: openerMode },
       })
       .start()
   }
+  const cardTimers = humanRoom ? scheduleCards(ctx, humanRoom, opts.durationMs) : []
 
   let livingScene: ChatScene | null = null
   if (!humanRoom) {
@@ -165,6 +205,7 @@ export async function runTalkSlot(ctx: StageContext, slot: readonly TalkRequest[
   }
 
   if (humanRoom) await runHumanRoom(ctx, humanRoom, opts)
+  for (const t of cardTimers) t.cancel()
 
   const background = rooms.filter((r) => r !== humanRoom)
   if (background.length > 0) {

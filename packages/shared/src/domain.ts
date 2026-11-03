@@ -96,7 +96,8 @@ export const ROOM_KINDS = ['living', 'private', 'group'] as const
 export const roomKindSchema = z.enum(ROOM_KINDS)
 export type RoomKind = z.infer<typeof roomKindSchema>
 
-export const VOTE_KINDS = ['first_impression', 'night', 'final'] as const
+/** 'date'는 마지막 데이트 상대 선택이다. 투표는 아니지만 같은 검증·비공개 규칙을 쓰므로 투표 기록을 재사용한다(D33). */
+export const VOTE_KINDS = ['first_impression', 'night', 'date', 'final'] as const
 export const voteKindSchema = z.enum(VOTE_KINDS)
 export type VoteKind = z.infer<typeof voteKindSchema>
 

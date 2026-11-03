@@ -1,14 +1,18 @@
-import type { AgentRunner, DialogueInput, TaskResult, TaskSpec } from '@heart/agents'
+import type { ActivityOption, AgentRunner, DialogueInput, TaskResult, TaskSpec } from '@heart/agents'
 import {
   LlmUnavailableError,
+  activityChoiceTask,
   dialogueTask,
   fallbackFlavor,
   inviteDecisionTask,
+  mailboxAnswerTask,
+  mailboxQuestionTask,
   memorySummaryTask,
   personaProfileTask,
   personaVoiceTask,
   relationshipEvalTask,
   selfIntroTask,
+  signalCardTask,
   voteTask,
 } from '@heart/agents'
 import type { CastParticipant, ParticipantId, PersonaFlavor, VoteKind } from '@heart/shared'
@@ -129,6 +133,30 @@ export class AgentService {
     return res.ok ? res.value : null
   }
 
+  /** 2일차 활동 지망. 실패하면 null(호출자가 무작위로 정한다). 후보 순서는 매번 섞는다(D20). */
+  async activityChoice(participantId: ParticipantId, options: ActivityOption[]): Promise<{ first: string; second: string } | null> {
+    const res = await this.exec(activityChoiceTask, { participantId, options: this.rng.shuffle(options) }, Priority.P2_DECISION)
+    return res.ok ? res.value : null
+  }
+
+  /** 시그널 카드. 실패하면 보내지 않은 것으로 한다(내용을 지어내지 않는다, 원칙 7). */
+  async signalCard(senderId: ParticipantId, candidateIds: ParticipantId[]): Promise<{ targetId: ParticipantId | null; text: string }> {
+    if (candidateIds.length === 0) return { targetId: null, text: '' }
+    const res = await this.exec(signalCardTask, { senderId, candidateIds: this.rng.shuffle(candidateIds) }, Priority.P2_DECISION)
+    return res.ok ? res.value : { targetId: null, text: '' }
+  }
+
+  async mailboxQuestion(askerId: ParticipantId, candidateIds: ParticipantId[]): Promise<{ targetId: ParticipantId | null; text: string }> {
+    if (candidateIds.length === 0) return { targetId: null, text: '' }
+    const res = await this.exec(mailboxQuestionTask, { askerId, candidateIds: this.rng.shuffle(candidateIds) }, Priority.P2_DECISION)
+    return res.ok ? res.value : { targetId: null, text: '' }
+  }
+
+  async mailboxAnswer(answererId: ParticipantId, askerId: ParticipantId, question: string): Promise<string | null> {
+    const res = await this.exec(mailboxAnswerTask, { answererId, askerId, question }, Priority.P2_DECISION)
+    return res.ok ? res.value : null
+  }
+
   /** 장면이 끝난 뒤 관계 평가. 백그라운드(P5)로 돌린다. */
   reflectLater(ownerId: ParticipantId, targetIds: ParticipantId[], sinceSeq: number, label: string): void {
     if (targetIds.length === 0) return
@@ -180,7 +208,7 @@ export class AgentService {
   }
 
   private recordChoiceMemory(ownerId: ParticipantId, kind: VoteKind, targetId: ParticipantId | null, reason: string, sources: number[]): void {
-    const label = kind === 'first_impression' ? '첫인상 선택' : kind === 'night' ? '심야 선택' : '최종 선택'
+    const label = { first_impression: '첫인상 선택', night: '심야 선택', date: '마지막 데이트 선택', final: '최종 선택' }[kind]
     const name = targetId ? (knownProfile(this.session.state, ownerId, targetId).name ?? '그 사람') : ''
     const content = targetId ? `${label}에서 ${name}을(를) 골랐다. ${reason}`.trim() : `${label}에서 아무도 고르지 않았다.`
     this.recordMemory(ownerId, 'choice', content, targetId ? [targetId] : [], sources)
