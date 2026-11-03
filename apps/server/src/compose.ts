@@ -1,3 +1,4 @@
+import { mkdirSync } from 'node:fs'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fakeResponders, type GpuLease, type ImagePort, type LlmPort } from '@heart/agents'
@@ -43,6 +44,7 @@ export function buildInference(env: ServerEnv, requestTimeoutMs: number, log: (l
     // 외부 llama-server는 내릴 수 없으므로 사진 생성을 건너뛴다(D27).
     return { llm, lease: new PassthroughLease(), image: null, shutdown: async () => {} }
   }
+  mkdirSync(env.runsDir, { recursive: true })
   const proc = new LlamaServerProcess({
     binary: env.llamaBin,
     model: env.llamaModel,
@@ -54,6 +56,7 @@ export function buildInference(env: ServerEnv, requestTimeoutMs: number, log: (l
     startupTimeoutMs: 120_000,
     extraArgs: env.llamaExtraArgs,
     health: () => llm.health(),
+    pidFile: join(env.runsDir, '.llama-server.pid'),
     log: (line) => log(`[llama-server] ${line}`),
   })
   const lease = new ProcessGpuLease(proc)

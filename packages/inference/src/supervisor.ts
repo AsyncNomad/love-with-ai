@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process'
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import type { GpuKind, GpuLease } from '@heart/agents'
 
 
@@ -58,19 +59,54 @@ export interface LlamaServerOptions {
   extraArgs?: string[]
   startupTimeoutMs: number
   health: () => Promise<boolean>
+  /** 띄운 프로세스의 PID를 기록한다. 게임 서버가 비정상 종료해 llama-server가 남아도 다음 실행이 이어받아 내릴 수 있다. */
+  pidFile: string
   log?: (line: string) => void
 }
 
-/** `llama-server`를 띄우고 /health가 200이 될 때까지 기다린다. */
+function isLlamaServer(pid: number): boolean {
+  try {
+    return readFileSync(`/proc/${pid}/cmdline`, 'utf8').includes('llama-server')
+  } catch {
+    return false
+  }
+}
+
+function isAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * `llama-server`를 띄우고 /health가 200이 될 때까지 기다린다.
+ * 포트에 이미 떠 있는 서버가 이전에 우리가 띄운 것(PID 파일)이면 이어받는다. 모르는 서버면 거부한다.
+ * 내리지 못하는 서버를 쓰면 GPU 교대가 조용히 실패하기 때문이다(실측: 사진 생성이 VRAM 부족 상태로 돌았다).
+ */
 export class LlamaServerProcess implements ManagedProcess {
   private child: ChildProcess | null = null
+  private adoptedPid: number | null = null
 
   constructor(private readonly opts: LlamaServerOptions) {}
 
   async ensureStarted(): Promise<void> {
     if (this.child && this.child.exitCode === null) return
-    if (await this.opts.health()) return
+    if (this.adoptedPid !== null && isAlive(this.adoptedPid)) return
     const o = this.opts
+    if (await o.health()) {
+      const pid = this.readPid()
+      if (pid !== null && isLlamaServer(pid)) {
+        this.adoptedPid = pid
+        o.log?.(`adopted running llama-server pid ${pid}`)
+        return
+      }
+      throw new Error(
+        `port ${o.port} is already served by a llama-server this app did not start; stop it, or use LLM_MODE=external (image generation is then skipped)`,
+      )
+    }
     const args = [
       '-m', o.model,
       '-ngl', String(o.gpuLayers),
@@ -83,6 +119,8 @@ export class LlamaServerProcess implements ManagedProcess {
     ]
     const child = spawn(o.binary, args, { stdio: ['ignore', 'ignore', 'pipe'] })
     this.child = child
+    if (child.pid !== undefined) writeFileSync(o.pidFile, String(child.pid))
+    child.once('exit', () => this.clearPid(child.pid))
     child.stderr?.on('data', (d: Buffer) => o.log?.(d.toString().trimEnd()))
     const deadline = Date.now() + o.startupTimeoutMs
     while (Date.now() < deadline) {
@@ -97,14 +135,34 @@ export class LlamaServerProcess implements ManagedProcess {
   async stop(): Promise<void> {
     const child = this.child
     this.child = null
-    if (!child || child.exitCode !== null) return
-    await new Promise<void>((resolve) => {
-      const force = setTimeout(() => child.kill('SIGKILL'), 10_000)
-      child.once('exit', () => {
-        clearTimeout(force)
-        resolve()
+    if (child && child.exitCode === null) {
+      await new Promise<void>((resolve) => {
+        const force = setTimeout(() => child.kill('SIGKILL'), 10_000)
+        child.once('exit', () => {
+          clearTimeout(force)
+          resolve()
+        })
+        child.kill('SIGTERM')
       })
-      child.kill('SIGTERM')
-    })
+    }
+    const adopted = this.adoptedPid
+    this.adoptedPid = null
+    if (adopted !== null && isAlive(adopted)) {
+      process.kill(adopted, 'SIGTERM')
+      const deadline = Date.now() + 10_000
+      while (isAlive(adopted) && Date.now() < deadline) await new Promise((r) => setTimeout(r, 200))
+      if (isAlive(adopted)) process.kill(adopted, 'SIGKILL')
+      this.clearPid(adopted)
+    }
+  }
+
+  private readPid(): number | null {
+    if (!existsSync(this.opts.pidFile)) return null
+    const pid = Number(readFileSync(this.opts.pidFile, 'utf8').trim())
+    return Number.isInteger(pid) && pid > 0 ? pid : null
+  }
+
+  private clearPid(pid: number | undefined): void {
+    if (pid !== undefined && this.readPid() === pid) rmSync(this.opts.pidFile, { force: true })
   }
 }

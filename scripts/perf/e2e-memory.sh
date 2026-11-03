@@ -44,7 +44,8 @@ SAMPLER=$!
 npx tsx apps/server/src/cli.ts drive --create > "$OUT/drive.log" 2>&1 || true
 PEAK=$(( $(cat "$CG/memory.peak" 2>/dev/null || echo 0) / 1048576 ))
 OOMS=$(awk '/oom_kill /{print $2}' "$CG/memory.events" 2>/dev/null || echo "?")
-kill "$SERVER" 2>/dev/null || true
+# 서버 프로세스만 죽이면 자식(llama-server)이 cgroup에 고아로 남는다(실측). scope 전체를 내린다.
+systemctl --user stop "$UNIT.scope" 2>/dev/null || kill "$SERVER" 2>/dev/null || true
 wait "$SERVER" 2>/dev/null || true
 kill "$SAMPLER" 2>/dev/null || true
 
