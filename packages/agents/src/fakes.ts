@@ -91,7 +91,7 @@ export const fakeResponders: Record<string, FakeResponder> = {
   },
   mailbox_question: (req, rng) => {
     const options = enumAt(req.jsonSchema, ['properties', 'target'])
-    return { target: rng.pick(options), text: rng.pick(QUESTIONS) }
+    return { target: rng.pick(options), question: rng.pick(QUESTIONS) }
   },
   mailbox_answer: (_req, rng) => ({ text: rng.pick(ANSWERS) }),
   memory_summary: () => ({ summary: '오늘은 여러 사람과 이야기했다. 아직 누가 잘 맞는지는 모르겠다.' }),

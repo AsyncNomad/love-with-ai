@@ -25,15 +25,17 @@ export interface MailboxQuestionInput {
   candidateIds: ParticipantId[]
 }
 
-export const mailboxQuestionTask: TaskSpec<MailboxQuestionInput, { target: string; text: string }, { targetId: ParticipantId | null; text: string }> = {
+// 출력 필드 이름을 "question"으로 둔다. "text"였을 때는 질문 대신 감상을 쓰는 경우가 많았다(실측, 3일 완주 2·3회차).
+export const mailboxQuestionTask: TaskSpec<MailboxQuestionInput, { target: string; question: string }, { targetId: ParticipantId | null; text: string }> = {
   id: 'mailbox_question',
   ownerOf: (i) => i.askerId,
   sampling: (ctx) => ctx.config.llm.dialogue,
   maxTokens: (ctx) => ctx.config.llm.maxTokens.mailbox_question ?? 120,
+  attempts: () => 3,
   schema: (i, ctx) => {
     const view = new ObservationView(ctx.state, i.askerId, ctx.config)
     const names = i.candidateIds.map((id) => view.known(id).name ?? id)
-    return z.object({ target: z.enum([NONE, ...names] as [string, ...string[]]), text: z.string().max(200) })
+    return z.object({ target: z.enum([NONE, ...names] as [string, ...string[]]), question: z.string().max(200) })
   },
   build: (i, ctx) => {
     const view = new ObservationView(ctx.state, i.askerId, ctx.config)
@@ -42,7 +44,7 @@ export const mailboxQuestionTask: TaskSpec<MailboxQuestionInput, { target: strin
     const system = joinSections(
       COMMON_RULES,
       personaSection(view),
-      `[출력 규칙]\nJSON으로만 답한다: {"target":"이름 또는 ${NONE}","text":"질문"}. 질문은 ${max}자 이내 한 문장, 존댓말 의문문으로 쓴다.`,
+      `[출력 규칙]\nJSON으로만 답한다: {"target":"이름 또는 ${NONE}","question":"질문"}. question은 ${max}자 이내의 의문문 한 문장이고 물음표로 끝난다. 감상이나 칭찬만 쓰지 않는다. 예: "처음 만났을 때 제 첫인상은 어땠어요?"`,
     )
     const user = joinSections(
       `[시그널 우체통]\n마지막 날 아침이다. 더 알고 싶은 이성 한 명에게 질문 하나를 보낸다. 질문과 답은 둘만 본다.\n지금까지 나눈 대화를 바탕으로 정말 궁금한 것을 묻는다. 궁금한 사람이 없으면 "${NONE}"을 고른다.`,
@@ -58,7 +60,7 @@ export const mailboxQuestionTask: TaskSpec<MailboxQuestionInput, { target: strin
     if (!targetId) return { issues: ['bad_choice'] }
     const self = view.self().cast
     const max = ctx.config.validation.maxChars.mailbox
-    const normalized = normalizeUtterance(raw.text, self.name)
+    const normalized = normalizeUtterance(raw.question, self.name)
     const text = fitLength(normalized, max) ?? normalized
     // 실측: 질문 대신 감상만 쓴 경우가 있었다("음악과 함께 하는 건 정말 감동적인 일 같아요.").
     // 물음표만 빠진 의문문("~하시나요.")이 더 흔해서, 의문형 어미면 물음표를 붙여 받는다.

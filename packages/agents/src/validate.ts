@@ -40,7 +40,7 @@ export function normalizeUtterance(raw: string, speakerName: string): string {
 
 /** 소형 모델이 자주 틀리는 1인칭 조사(실측: "저가 베이킹을…", "제가도 좋아해요"). */
 function fixGrammar(text: string): string {
-  return text.replace(/(^|[\s,])저가(?=\s)/g, '$1제가').replace(/제가도/g, '저도')
+  return text.replace(/(^|[\s,])저가(?=\s)/g, '$1제가').replace(/제가도/g, '저도').replace(/제가랑/g, '저랑')
 }
 
 /** 문장 단위로 나눈다(마침표·물음표·느낌표·물결 뒤 공백). */
@@ -120,7 +120,7 @@ export function isPolite(text: string): boolean {
 const TAIL = String.raw`\s*[.!?~ㅋㅎ,\s]*$`
 const CASUAL_ENDING = new RegExp(String.raw`(?:[다야자어아해지냐니래게걸까러봐줘와돼워든군]|(?<=[가-힣])네|구나)` + TAIL)
 /** 마지막이 아닌 문장에서 반말로 보는 어미. "맛있겠다!" 같은 혼잣말 감탄(-다)은 존댓말 사이에서도 흔해서 뺀다. */
-const STRONG_CASUAL_ENDING = new RegExp(String.raw`(?:[야자어아해지냐줘워까]|(?<=[가-힣])네|거든|구나)` + TAIL)
+const STRONG_CASUAL_ENDING = new RegExp(String.raw`(?:[야자어아해지냐줘워까니]|(?<=[가-힣])네|거든|구나)` + TAIL)
 
 /**
  * 분명한 반말 어미로 끝나는 문장이 있는가. 감탄사·짧은 반응("ㅋㅋㅋ", "오 진짜", "네!")은 반말로 보지 않는다.

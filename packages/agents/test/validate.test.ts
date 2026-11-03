@@ -165,3 +165,10 @@ describe('second real-model run', () => {
     expect(hasCasualWord('나랑 취미가 비슷한 사람들도 많아요')).toBe(true)
   })
 })
+
+describe('third real-model run', () => {
+  it('fixes 제가랑 and flags a mid-message casual 니?', () => {
+    expect(normalizeUtterance('그럼요, 제가랑은 좀 다르죠.', '정하린')).toBe('그럼요, 저랑은 좀 다르죠.')
+    expect(isCasual('음식이라니? 저는 디저트를 좋아해요.')).toBe(true)
+  })
+})
