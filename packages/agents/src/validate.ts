@@ -56,7 +56,7 @@ export function checkDialogue(input: DialogueCheckInput, cfg: ValidationConfig):
   if (hasForeignScript(text)) issues.push('foreign_script')
   if (input.mustBePolite && isCasual(text)) issues.push('speech_level')
   const recent = input.recentOwn.slice(-cfg.repetitionWindow)
-  if (recent.some((r) => similarity(r, text) >= cfg.repetitionThreshold)) issues.push('repetition')
+  if (recent.some((r) => isRepeat(r, text, cfg.repetitionThreshold))) issues.push('repetition')
   return issues
 }
 
@@ -86,6 +86,53 @@ export function isCasual(text: string): boolean {
     .filter((s) => /[가-힣]/.test(s))
   const last = sentences.at(-1) ?? ''
   return !isPolite(last) && CASUAL_ENDING.test(last)
+}
+
+/**
+ * 웃음 표현(ㅋ·ㅎ) 정리. 소형 모델은 인물 설정과 상관없이 "ㅋㅋ"를 남발한다(실측). 프롬프트만으로는 막히지 않아 코드로 강제한다.
+ * - 웃음을 잘 안 쓰는 인물(laughter < LAUGH_THRESHOLD): 모두 지운다.
+ * - 잘 쓰는 인물: "ㅋㅋㅋㅋ" 같은 연속은 두 글자로 줄이고, 한 메시지에 한 번만 남긴다.
+ */
+export const LAUGH_THRESHOLD = 0.65
+
+export function limitLaughter(text: string, laughter: number): string {
+  let out: string
+  if (laughter < LAUGH_THRESHOLD) {
+    out = text.replace(/[ㅋㅎ]+/g, '')
+  } else {
+    let kept = false
+    out = text.replace(/[ㅋㅎ]+/g, (m) => {
+      if (kept) return ''
+      kept = true
+      return m.slice(0, 2)
+    })
+  }
+  return out
+    .replace(/\s+([.,!?~])/g, '$1')
+    .replace(/([.!?])\s*\./g, '$1')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+}
+
+function grams(s: string): Set<string> {
+  const t = s.replace(/\s+/g, '')
+  const out = new Set<string>()
+  for (let i = 0; i + 3 <= t.length; i++) out.add(t.slice(i, i + 3))
+  return out
+}
+
+/**
+ * 반복 판정. 전체 유사도(Jaccard)뿐 아니라, 한쪽이 다른 쪽을 거의 포함하는 경우도 잡는다
+ * (실측: 직전 발언에 질문 한 줄을 덧붙인 메시지가 Jaccard 기준을 빠져나갔다).
+ */
+export function isRepeat(prev: string, next: string, threshold: number): boolean {
+  if (similarity(prev, next) >= threshold) return true
+  const a = grams(prev)
+  const b = grams(next)
+  if (a.size < 8 || b.size < 8) return false
+  let inter = 0
+  for (const g of a) if (b.has(g)) inter++
+  return inter / Math.min(a.size, b.size) >= 0.8
 }
 
 /** 문자 3-gram Jaccard 유사도. */

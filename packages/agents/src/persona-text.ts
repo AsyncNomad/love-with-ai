@@ -1,6 +1,7 @@
 import type { CastParticipant, PersonaFlavor, RelationshipConfig } from '@heart/shared'
 import { TRAIT_AXES } from '@heart/shared'
 import { traitWord, type CompatHint, type RelationshipState } from '@heart/engine'
+import { LAUGH_THRESHOLD } from './validate'
 
 /** 숫자 성향을 자연어로 바꾼 인물 소개(D12). 본인 프롬프트에만 들어간다. */
 export function renderPersona(cast: CastParticipant, flavor: PersonaFlavor | null): string {
@@ -32,7 +33,7 @@ function speechRules(cast: CastParticipant, flavor: PersonaFlavor | null): strin
   const parts: string[] = []
   if (flavor) parts.push(flavor.speechDescription)
   parts.push(s.length === 'short' ? '말이 짧고 간결하다' : s.length === 'medium' ? '적당한 길이로 말한다' : '조금 길게 설명하는 편이다')
-  parts.push(s.laughter >= 0.6 ? 'ㅋㅋ를 자주 쓴다' : s.laughter >= 0.3 ? '가끔 ㅋㅋ를 쓴다' : 'ㅋㅋ를 거의 쓰지 않는다')
+  parts.push(s.laughter >= LAUGH_THRESHOLD ? '정말 웃길 때만 가끔 ㅋㅋ를 쓴다(한 메시지에 한 번 이하)' : 'ㅋㅋ 같은 웃음 표현은 쓰지 않는다')
   parts.push(s.emoji >= 0.5 ? '이모티콘을 종종 쓴다' : '이모티콘은 거의 안 쓴다')
   parts.push(s.questionTendency >= 0.6 ? '질문을 자주 던진다' : '질문보다 자기 얘기를 하는 편이다')
   if (s.humorStyle) parts.push(`${s.humorStyle} 유머`)

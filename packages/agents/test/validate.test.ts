@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { defaultConfig } from '@heart/config'
-import { checkDialogue, fitLength, hasForeignScript, isCasual, isPolite, normalizeUtterance, similarity } from '../src'
+import { checkDialogue, fitLength, hasForeignScript, isCasual, isPolite, isRepeat, limitLaughter, normalizeUtterance, similarity } from '../src'
 
 const cfg = defaultConfig.validation
 const base = { speakerName: '정하린', maxChars: 80, unknownNames: [] as string[], recentOwn: [] as string[] }
@@ -84,5 +84,19 @@ describe('speech level (D13)', () => {
     expect(isCasual('저도 좋아해요. ㅋㅋ')).toBe(false)
     expect(checkDialogue({ ...base, text: '처음 봐서 반갑다', mustBePolite: true }, cfg)).toContain('speech_level')
     expect(checkDialogue({ ...base, text: '처음 봐서 반갑다', mustBePolite: false }, cfg)).not.toContain('speech_level')
+  })
+})
+
+describe('laughter and repetition (from real-model play)', () => {
+  it('strips laughter for low-laughter personas and keeps at most one otherwise', () => {
+    expect(limitLaughter('잠깐, 분위기가 정적이라서 ㅋㅋ. 커피 드셨어요? ㅋㅋㅋ', 0.2)).toBe('잠깐, 분위기가 정적이라서. 커피 드셨어요?')
+    expect(limitLaughter('ㅋㅋㅋㅋ 저도요 ㅎㅎ 진짜요', 0.9)).toBe('ㅋㅋ 저도요 진짜요')
+    expect(limitLaughter('ㅋㅋㅋ', 0.1)).toBe('')
+  })
+  it('treats a near-copy with an extra sentence as a repeat', () => {
+    const a = '아, 커피 안 먹셨나요? 저는 오늘 아침에 커피 한 잔 마시면서 영상 편집을 하다가 잠깐 쉬었어요'
+    const b = '아, 커피 안 마셨네요. 저는 오늘 아침에 커피 한 잔 마시면서 영상 편집을 하다가 잠깐 쉬었어요 혹시 뭐가 좋으신가요? 오늘 분위기 좀 바꿀 수 있는 거 있을까요?'
+    expect(isRepeat(a, b, 0.7)).toBe(true)
+    expect(isRepeat('네 좋아요', '네 좋네요', 0.7)).toBe(false)
   })
 })

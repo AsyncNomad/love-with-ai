@@ -3,7 +3,7 @@ import type { CastParticipant, PersonaFlavor } from '@heart/shared'
 import { TRAIT_AXES } from '@heart/shared'
 import { traitWord } from '@heart/engine'
 import type { TaskSpec } from '../task'
-import { checkDialogue, hasForeignScript, isPolite, similarity } from '../validate'
+import { LAUGH_THRESHOLD, checkDialogue, hasForeignScript, isPolite, limitLaughter, similarity } from '../validate'
 
 /**
  * 인격 서술 생성(design.md §8.1-6). 구조적 값(이름·나이·직업·성향)은 서버가 정했고 LLM은 바꾸지 못한다.
@@ -64,7 +64,7 @@ export const personaVoiceTask: TaskSpec<PersonaVoiceInput, PersonaVoice, Persona
     const s = i.cast.speech
     const hints = [
       s.length === 'short' ? '말이 짧다' : '적당히 길게 말한다',
-      s.laughter >= 0.6 ? 'ㅋㅋ를 자주 쓴다' : s.laughter >= 0.3 ? 'ㅋㅋ를 가끔 쓴다' : 'ㅋㅋ를 거의 안 쓴다',
+      s.laughter >= LAUGH_THRESHOLD ? '웃길 때만 가끔 ㅋㅋ를 쓴다' : 'ㅋㅋ 같은 웃음 표현을 쓰지 않는다',
       s.emoji >= 0.5 ? '이모티콘을 가끔 쓴다' : '이모티콘을 안 쓴다',
     ].join(', ')
     return {
@@ -82,7 +82,7 @@ export const personaVoiceTask: TaskSpec<PersonaVoiceInput, PersonaVoice, Persona
         .replace(/^\(?\d+[).]\s*/, '')
         .replace(/^["“”'‘’]+|["“”'‘’]+$/g, '')
         .trim(),
-    )
+    ).map((l) => limitLaughter(l, i.cast.speech.laughter))
     for (const line of lines) {
       const issues = checkDialogue({ text: line, speakerName: i.cast.name, maxChars: 70, unknownNames: [], recentOwn: [] }, ctx.config.validation)
       if (issues.length > 0) return { issues }
@@ -92,6 +92,7 @@ export const personaVoiceTask: TaskSpec<PersonaVoiceInput, PersonaVoice, Persona
     if (hasForeignScript(raw.speechDescription)) return { issues: ['foreign_script'] }
     const overlap = lines.filter((l) => i.othersLines.some((o) => similarity(o, l) >= 0.5)).length
     if (overlap >= 2) return { issues: ['persona_overlap'] }
-    return { value: { speechDescription: raw.speechDescription.trim(), exampleLines: lines } }
+    const description = i.cast.speech.laughter >= LAUGH_THRESHOLD ? raw.speechDescription.trim() : limitLaughter(raw.speechDescription.replace(/['"]?ㅋ+['"]?(를|와|나|도)?/g, ''), 0)
+    return { value: { speechDescription: description, exampleLines: lines } }
   },
 }

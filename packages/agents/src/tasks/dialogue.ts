@@ -3,7 +3,7 @@ import type { ParticipantId, RoomId } from '@heart/shared'
 import { ObservationView } from '../observation'
 import { COMMON_RULES, conversationSection, joinSections, memorySection, peopleSection, personaSection, situationSection } from '../prompts'
 import type { TaskSpec } from '../task'
-import { checkDialogue, fitLength, normalizeUtterance } from '../validate'
+import { checkDialogue, fitLength, limitLaughter, normalizeUtterance } from '../validate'
 
 export type DialogueMode = 'reply' | 'start_topic' | 'greeting' | 'open_private' | 'wrap_up' | 'follow_up'
 
@@ -51,7 +51,7 @@ export const dialogueTask: TaskSpec<DialogueInput, { action: 'speak' | 'silent';
     const system = joinSections(
       COMMON_RULES,
       personaSection(view),
-      `[출력 규칙]\nJSON으로만 답한다. 말할 때는 {"action":"speak","text":"..."}, 침묵할 때는 {"action":"silent","text":""}.\n실제 메신저처럼 한두 문장, ${maxChars}자 이내로 쓴다. 매번 질문으로 끝내지 않는다.`,
+      `[출력 규칙]\nJSON으로만 답한다. 말할 때는 {"action":"speak","text":"..."}, 침묵할 때는 {"action":"silent","text":""}.\n실제 메신저처럼 한두 문장, ${maxChars}자 이내로 쓴다. 매번 질문으로 끝내지 않는다. 웃음 표현(ㅋㅋ)은 인물 설정에 있을 때만 쓴다.`,
     )
     const user = joinSections(
       situationSection(view, i.roomId),
@@ -66,9 +66,11 @@ export const dialogueTask: TaskSpec<DialogueInput, { action: 'speak' | 'silent';
   finish: (raw, i, ctx, built) => {
     if (raw.action === 'silent') return { value: { text: null } }
     const view = built.view as ObservationView
-    const speakerName = ctx.state.participants.get(i.speakerId)?.cast.name ?? ''
+    const cast = ctx.state.participants.get(i.speakerId)?.cast
+    const speakerName = cast?.name ?? ''
     const maxChars = i.isPrivate ? ctx.config.validation.maxChars.private : ctx.config.validation.maxChars.group
-    const normalized = normalizeUtterance(raw.text, speakerName)
+    const normalized = limitLaughter(normalizeUtterance(raw.text, speakerName), cast?.speech.laughter ?? 0)
+    if (normalized.length === 0) return { value: { text: null } }
     const fitted = fitLength(normalized, maxChars) ?? normalized
     const issues = checkDialogue(
       {

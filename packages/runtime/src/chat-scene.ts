@@ -297,7 +297,9 @@ export class ChatScene {
       if (token !== this.idleToken || !this.accepting) return
       if (this.inFlight.size === 0) {
         const state = this.deps.session.state
-        const ais = this.deps.house.members(this.roomId).filter((id) => id !== this.humanId)
+        // 직전에 말한 사람은 새 화제를 꺼내지 않는다. 혼자 남은 AI가 대답 없는 상대에게 같은 말을 되풀이하던 문제(실측).
+        const last = this.recent.at(-1)?.speakerId
+        const ais = this.deps.house.members(this.roomId).filter((id) => id !== this.humanId && id !== last)
         if (ais.length > 0) {
           const starter = this.deps.rng.weighted(ais, (id) => 10 + (state.participants.get(id)?.cast.traits.extraversion ?? 50))
           const humanHere = this.humanId !== null && this.deps.house.members(this.roomId).includes(this.humanId)

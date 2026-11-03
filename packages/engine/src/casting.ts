@@ -53,7 +53,8 @@ export function castParticipants(input: CastingInput, pools: CastingPools, rng: 
       dealbreaker: { axis: misc.pick(TRAIT_AXES), direction: misc.chance(0.5) ? 'high' : 'low' },
       speech: {
         length: t.extraversion > 65 ? 'medium' : misc.chance(0.3) ? 'medium' : 'short',
-        laughter: round2(Math.min(1, (t.humor / 100) * 0.8 + misc.next() * 0.3)),
+        // 웃음 표현은 유머가 많은 인물만 쓰도록 분포를 낮췄다(실측: 대부분이 ㅋㅋ를 남발했다).
+        laughter: round2(Math.max(0, Math.min(1, (t.humor / 100) * 0.7 + misc.next() * 0.3 - 0.15))),
         emoji: round2(misc.next() * (t.expressiveness / 100)),
         questionTendency: round2(0.2 + (t.extraversion / 100) * 0.4 + misc.next() * 0.2),
         humorStyle: misc.pick(pools.humorStyles),
