@@ -8,17 +8,23 @@ import Fastify from 'fastify'
 import type { WebSocket } from 'ws'
 import { defaultConfig, withTimeScale } from '@heart/config'
 import { Game, realTimerHost } from '@heart/runtime'
-import { clientMessageSchema, emptyHumanView, type ServerInfo, type ServerMessage, type ViewPatch } from '@heart/shared'
+import { clientMessageSchema, emptyHumanView, type ServerMessage, type ViewPatch } from '@heart/shared'
 import { SqliteRunStore } from '@heart/store'
 import { FsAvatarStore, buildInference } from './compose'
 import { readEnv } from './env'
 
 const env = readEnv()
+if (env.missing.length > 0) {
+  // 플레이는 항상 실제 모델로만 한다(D32). 빠진 것을 알려 주고 시작하지 않는다.
+  console.error('\n[하트 하우스] 실제 모델 실행에 필요한 파일이 없습니다:')
+  for (const m of env.missing) console.error(`  - ${m.path}`)
+  console.error(`\n  설치: ${[...new Set(env.missing.map((m) => m.fix))].join(' && ')}\n`)
+  process.exit(1)
+}
 const config = withTimeScale(defaultConfig, env.timeScale)
 const app = Fastify({ logger: { level: 'info' } })
 const inference = buildInference(env, config.llm.requestTimeoutMs, (line) => app.log.debug(line))
 const avatars = new FsAvatarStore(env.runsDir)
-const serverInfo: ServerInfo = { llmMode: env.llmMode, imageMode: env.imageMode }
 
 interface ActiveRun {
   game: Game
@@ -36,13 +42,13 @@ function attach(ws: WebSocket): void {
   clients.get(ws)?.()
   if (!active) {
     clients.set(ws, () => {})
-    send(ws, { type: 'snapshot', view: emptyHumanView(), server: serverInfo })
+    send(ws, { type: 'snapshot', view: emptyHumanView() })
     return
   }
   const game = active.game
   const unsub = game.projector.subscribe((patches: ViewPatch[]) => send(ws, { type: 'patch', patches }))
   clients.set(ws, unsub)
-  send(ws, { type: 'snapshot', view: game.projector.snapshot(), server: serverInfo })
+  send(ws, { type: 'snapshot', view: game.projector.snapshot() })
 }
 
 function newRunId(): string {
@@ -144,5 +150,5 @@ process.on('SIGINT', () => void shutdown())
 process.on('SIGTERM', () => void shutdown())
 
 await app.listen({ port: env.port, host: env.host })
-app.log.info(`Heart House server on http://${env.host}:${env.port} (llm=${env.llmMode}, image=${env.imageMode}, ctx=${env.contextSize}, timeScale=${env.timeScale})`)
+app.log.info(`Heart House server on http://${env.host}:${env.port} (ctx=${env.contextSize}, timeScale=${env.timeScale})`)
 for (const note of env.notes) app.log.warn(note)

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
-import { applyPatch, emptyHumanView, type Command, type HumanView, type ServerInfo, type ViewPatch } from '@heart/shared'
+import { applyPatch, emptyHumanView, type Command, type HumanView, type ViewPatch } from '@heart/shared'
 import { GameConnection, type CommandAck, type ConnectionStatus } from '../net/connection'
 
 type Action = { type: 'snapshot'; view: HumanView } | { type: 'patches'; patches: ViewPatch[] }
@@ -13,7 +13,6 @@ export interface GameApi {
   view: HumanView
   /** 타이머 값을 마지막으로 받은 시각(performance.now). 화면 카운트다운의 기준점이다. */
   timerSyncedAt: number
-  server: ServerInfo | null
   connection: ConnectionStatus
   send(command: Command): Promise<CommandAck>
 }
@@ -23,15 +22,13 @@ export function useGame(): GameApi {
   const [view, dispatch] = useReducer(reducer, undefined, emptyHumanView)
   const [connection, setConnection] = useState<ConnectionStatus>('connecting')
   const [timerSyncedAt, setTimerSyncedAt] = useState(() => performance.now())
-  const [server, setServer] = useState<ServerInfo | null>(null)
   const connRef = useRef<GameConnection | null>(null)
 
   useEffect(() => {
     const proto = location.protocol === 'https:' ? 'wss' : 'ws'
     const conn = new GameConnection(`${proto}://${location.host}/ws`, {
-      onSnapshot: (v, info) => {
+      onSnapshot: (v) => {
         setTimerSyncedAt(performance.now())
-        setServer(info)
         dispatch({ type: 'snapshot', view: v })
       },
       onPatches: (patches) => {
@@ -51,5 +48,5 @@ export function useGame(): GameApi {
   }, [])
 
   const send = useCallback((command: Command) => connRef.current?.send(command) ?? Promise.resolve({ ok: false, error: 'offline' }), [])
-  return { view, timerSyncedAt, server, connection, send }
+  return { view, timerSyncedAt, connection, send }
 }

@@ -25,16 +25,14 @@ TIME_SCALE=0.1 npm run dev   # 단계 시간을 10분의 1로 줄여서 빠르�
 
 `npm run`과 `pnpm`은 스크립트 실행기로서는 같다. 스크립트가 내부에서 pnpm을 부르므로 pnpm(corepack)은 있어야 한다.
 
-기본은 자동이다. `bin/`과 `models/`에 llama-server와 모델이 있으면 실제 모델로, 없으면 GPU 없이 도는 테스트 모드(가짜 AI)로 시작한다. 테스트 모드일 때는 화면 사이드바에 "테스트 모드 · AI 응답이 가짜입니다"가 표시된다. 설치는 아래 "Phase 1 설치 절차"를 본다.
+플레이 서버는 항상 실제 모델(GPU)로 돈다(D32). `bin/`과 `models/`에 실행 파일과 모델이 없으면 빠진 파일과 설치 명령을 알려 주고 시작하지 않는다. 설치는 아래 "Phase 1 설치 절차"를 본다. 가짜 모델은 `npm run check`와 `npm run sim` 안에서만 쓴다.
 
 | 환경 변수 | 기본값 | 뜻 |
 |---|---|---|
-| `LLM_MODE` | `auto` | `auto`(설치돼 있으면 llamacpp, 아니면 fake) / `fake` / `llamacpp`(서버가 llama-server를 띄우고 GPU를 교대) / `external`(이미 떠 있는 llama-server에 붙음, 사진 생성 생략) |
-| `IMAGE_MODE` | `auto` | `auto`(LLM이 fake면 fake, llamacpp이고 sd.cpp가 설치돼 있으면 sdcpp, 아니면 off) / `fake` / `sdcpp` / `off` |
 | `TIME_SCALE` | `1` | 단계 시간 배율 |
 | `LLAMA_BIN`, `LLAMA_MODEL`, `LLAMA_PORT`, `LLAMA_CTX` | `bin/llama-server`, `models/Qwen3.5-4B-Q4_K_M.gguf`, `8080`, 자동 | llama.cpp. 컨텍스트는 기본 102400이고, VRAM이 최소 사양보다 작으면 32768로 줄이며 시작 로그에 경고를 남긴다 |
 | `SD_BIN`, `SD_DIFFUSION_MODEL`, `SD_VAE`, `SD_TEXT_ENCODER` | `bin/sd-cli`, `models/flux-2-klein-4b-Q4_0.gguf`, `models/flux2-small-decoder.safetensors`, `models/Qwen3-4B-Q4_K_M.gguf` | stable-diffusion.cpp. 기본값은 `setup:image`가 받는 파일과 같다 |
-| `SD_EXTRA_ARGS` | 없음 | sd-cli에 덧붙일 인자(예: VRAM이 부족할 때 `--offload-to-cpu`) |
+| `SD_EXTRA_ARGS` | 없음 | sd-cli에 덧붙일 인자 |
 | `LLAMA_EXTRA_ARGS` | 없음 | llama-server에 덧붙일 인자 |
 | `RUNS_DIR` | `runs` | 회차 기록 위치 |
 
@@ -136,7 +134,7 @@ npm run bench -- --url http://127.0.0.1:8080 --label <이름>   # 측정 리포�
 - 툴체인(CUDA 12.9 리포 내 설치), llama.cpp `v0.8.0`와 stable-diffusion.cpp `master-1039-290148d` CUDA 빌드, 모델 4개 다운로드·해시 검증.
 - 계약: `response_format`(json_schema) 준수 35/35, thinking 출력 0건(`chat_template_kwargs.enable_thinking=false`), `--reasoning on|off` 플래그 존재.
 - 개발 PC 실측(최소 사양보다 느린 GPU, `-c 32768`): 전체 p50 2.33s / p95 4.83s, 대사 p50 2.42s / p95 4.11s, 생성 약 66 tok/s, 프롬프트 처리 약 210~230 tok/s, 한국어 글자당 0.48토큰.
-- `LLM_MODE=llamacpp IMAGE_MODE=sdcpp` E2E: 게임 서버가 llama-server를 내리고 사진 7장을 만든 뒤 다시 올려 1일차를 완주했다. GPU 교대가 동작한다. LLM 호출 거부율은 대사 11%, 인격 말투 50%다(존댓말 검증. 실패분은 재생성 후 1명만 템플릿으로 대체).
+- 실제 모델 E2E: 게임 서버가 llama-server를 내리고 사진 7장을 만든 뒤 다시 올려 1일차를 완주했다. GPU 교대가 동작한다. LLM 호출 거부율은 대사 11%, 인격 말투 50%다(존댓말 검증. 실패분은 재생성 후 1명만 템플릿으로 대체).
 - 실측으로 고친 것: 관계 평가 최대 토큰을 대상 수에 비례하게, 예시 대사 번호표 제거, 투표 유보 쏠림 완화, 한자·가나 누출 거부, 처음 만난 사이의 반말 거부(웃음만 붙은 조각 처리 포함).
 
 ### Phase 1에서 남은 일

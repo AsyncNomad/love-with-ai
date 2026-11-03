@@ -104,7 +104,7 @@ export class LlamaServerProcess implements ManagedProcess {
         return
       }
       throw new Error(
-        `port ${o.port} is already served by a llama-server this app did not start; stop it, or use LLM_MODE=external (image generation is then skipped)`,
+        `port ${o.port} is already served by a llama-server this app did not start; stop it and start the game server again`,
       )
     }
     const args = [

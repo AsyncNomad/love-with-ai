@@ -1,18 +1,17 @@
-import type { HumanView, RoomView, ServerInfo } from '@heart/shared'
+import type { HumanView, RoomView } from '@heart/shared'
 import { roomDisplay, simTimeLabel } from '../lib/format'
 import { AvatarStack } from './Avatar'
 import styles from './Sidebar.module.css'
 
 interface Props {
   view: HumanView
-  server: ServerInfo | null
   rooms: RoomView[]
   selectedId: string | null
   unread: Set<string>
   onSelect(id: string): void
 }
 
-export function Sidebar({ view, server, rooms, selectedId, unread, onSelect }: Props) {
+export function Sidebar({ view, rooms, selectedId, unread, onSelect }: Props) {
   return (
     <aside className={styles.sidebar}>
       <header className={styles.brand}>
@@ -22,11 +21,6 @@ export function Sidebar({ view, server, rooms, selectedId, unread, onSelect }: P
           </svg>
         </div>
         <div className={styles.brandName}>하트 하우스</div>
-        {server?.llmMode === 'fake' && (
-          <div className={styles.testMode} title="npm run setup:llm 으로 실제 모델을 설치하면 진짜 AI로 대화합니다">
-            테스트 모드 · AI 응답이 가짜입니다
-          </div>
-        )}
         {view.stage && (
           <div className={styles.stage}>
             {simTimeLabel(view.stage.simTime)} · {view.stage.label}

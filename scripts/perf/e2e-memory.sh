@@ -16,7 +16,7 @@ source "$HOME/.nvm/nvm.sh" >/dev/null
 UNIT="heart-e2e-$$"
 
 # 게임 서버는 llama-server와 sd-cli를 자식으로 띄우므로 셋 다 같은 cgroup에 들어간다.
-LLM_MODE=llamacpp IMAGE_MODE=sdcpp TIME_SCALE="$SCALE" RUNS_DIR="$OUT/runs" LLAMA_CTX="${LLAMA_CTX:-102400}" \
+TIME_SCALE="$SCALE" RUNS_DIR="$OUT/runs" LLAMA_CTX="${LLAMA_CTX:-102400}" \
   systemd-run --user --scope -q --unit="$UNIT" -p MemoryMax="${LIMIT_MB}M" -p OOMPolicy=continue -- \
   npx tsx apps/server/src/main.ts > "$OUT/server.log" 2>&1 &
 SERVER=$!

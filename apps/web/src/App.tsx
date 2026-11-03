@@ -28,7 +28,7 @@ function openMemberRooms(rooms: RoomView[]): string[] {
 }
 
 export function App() {
-  const { view, timerSyncedAt, server, connection, send } = useGame()
+  const { view, timerSyncedAt, connection, send } = useGame()
   const rooms = useMemo(() => orderedRooms(view), [view])
   const member = useMemo(() => openMemberRooms(rooms), [rooms])
   const [selected, setSelected] = useState<string | null>(null)
@@ -69,7 +69,7 @@ export function App() {
 
   return (
     <div className={styles.app}>
-      <Sidebar view={view} server={server} rooms={rooms} selectedId={current} unread={unread} onSelect={setSelected} />
+      <Sidebar view={view} rooms={rooms} selectedId={current} unread={unread} onSelect={setSelected} />
       <ChatPane
         view={view}
         timerSyncedAt={timerSyncedAt}

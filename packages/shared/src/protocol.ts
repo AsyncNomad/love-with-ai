@@ -165,13 +165,7 @@ export const clientMessageSchema = z.discriminatedUnion('type', [
 ])
 export type ClientMessage = z.infer<typeof clientMessageSchema>
 
-/** 서버가 어떤 추론 구성으로 돌고 있는지. fake면 화면에 테스트 모드를 표시한다. */
-export interface ServerInfo {
-  llmMode: 'fake' | 'llamacpp' | 'external'
-  imageMode: 'fake' | 'sdcpp' | 'off'
-}
-
 export type ServerMessage =
-  | { type: 'snapshot'; view: HumanView; server: ServerInfo }
+  | { type: 'snapshot'; view: HumanView }
   | { type: 'patch'; patches: ViewPatch[] }
   | { type: 'ack'; commandId: string; ok: boolean; error?: string }

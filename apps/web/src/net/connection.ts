@@ -1,9 +1,9 @@
-import type { ClientMessage, Command, HumanView, ServerInfo, ServerMessage, ViewPatch } from '@heart/shared'
+import type { ClientMessage, Command, HumanView, ServerMessage, ViewPatch } from '@heart/shared'
 
 export type ConnectionStatus = 'connecting' | 'open' | 'closed'
 
 export interface ConnectionHandlers {
-  onSnapshot(view: HumanView, server: ServerInfo): void
+  onSnapshot(view: HumanView): void
   onPatches(patches: ViewPatch[]): void
   onStatus(status: ConnectionStatus): void
 }
@@ -75,7 +75,7 @@ export class GameConnection {
     }
     switch (msg.type) {
       case 'snapshot':
-        this.handlers.onSnapshot(msg.view, msg.server)
+        this.handlers.onSnapshot(msg.view)
         break
       case 'patch':
         this.handlers.onPatches(msg.patches)

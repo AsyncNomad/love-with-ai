@@ -1,49 +1,24 @@
 import { mkdirSync } from 'node:fs'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { fakeResponders, type GpuLease, type ImagePort, type LlmPort } from '@heart/agents'
-import { createRng } from '@heart/engine'
-import { FakeImage, FakeLlm, LlamaCppLlm, LlamaServerProcess, PassthroughLease, ProcessGpuLease, SdCppImage } from '@heart/inference'
+import type { GpuLease, ImagePort, LlmPort } from '@heart/agents'
+import { LlamaCppLlm, LlamaServerProcess, ProcessGpuLease, SdCppImage } from '@heart/inference'
 import type { AvatarStore } from '@heart/runtime'
 import type { ServerEnv } from './env'
 
 export interface Inference {
   llm: LlmPort
   lease: GpuLease
-  image: ImagePort | null
+  image: ImagePort
   shutdown(): Promise<void>
 }
 
-const realSleep = (ms: number, signal?: AbortSignal): Promise<void> =>
-  new Promise((resolve, reject) => {
-    const t = setTimeout(resolve, ms)
-    signal?.addEventListener(
-      'abort',
-      () => {
-        clearTimeout(t)
-        const err = new Error('aborted')
-        err.name = 'AbortError'
-        reject(err)
-      },
-      { once: true },
-    )
-  })
-
-/** 설정에 맞는 추론 구성(D27). */
+/**
+ * 플레이용 추론 구성(D27, D32): 게임 서버가 llama-server를 직접 띄우고, 사진을 만들 때 GPU를 교대한다.
+ * 모드는 하나다. 가짜 모델은 테스트·시뮬레이션(sim.ts)에서만 조립한다.
+ */
 export function buildInference(env: ServerEnv, requestTimeoutMs: number, log: (line: string) => void): Inference {
-  if (env.llmMode === 'fake') {
-    return {
-      llm: new FakeLlm({ rng: createRng(`fake-${Date.now()}`), responders: fakeResponders, latencyMs: env.fakeLatencyMs, sleep: realSleep }),
-      lease: new PassthroughLease(),
-      image: env.imageMode === 'fake' ? new FakeImage() : null,
-      shutdown: async () => {},
-    }
-  }
   const llm = new LlamaCppLlm({ baseUrl: env.llamaUrl, timeoutMs: requestTimeoutMs })
-  if (env.llmMode === 'external') {
-    // 외부 llama-server는 내릴 수 없으므로 사진 생성을 건너뛴다(D27).
-    return { llm, lease: new PassthroughLease(), image: null, shutdown: async () => {} }
-  }
   mkdirSync(env.runsDir, { recursive: true })
   const proc = new LlamaServerProcess({
     binary: env.llamaBin,
@@ -60,12 +35,14 @@ export function buildInference(env: ServerEnv, requestTimeoutMs: number, log: (l
     log: (line) => log(`[llama-server] ${line}`),
   })
   const lease = new ProcessGpuLease(proc)
-  const image =
-    env.imageMode === 'sdcpp'
-      ? new SdCppImage({ binary: env.sdBin, diffusionModel: env.sdDiffusionModel, vae: env.sdVae, textEncoder: env.sdTextEncoder, timeoutMs: 180_000, extraArgs: env.sdExtraArgs })
-      : env.imageMode === 'fake'
-        ? new FakeImage()
-        : null
+  const image = new SdCppImage({
+    binary: env.sdBin,
+    diffusionModel: env.sdDiffusionModel,
+    vae: env.sdVae,
+    textEncoder: env.sdTextEncoder,
+    timeoutMs: 180_000,
+    extraArgs: env.sdExtraArgs,
+  })
   return { llm, lease, image, shutdown: () => lease.shutdown() }
 }
 

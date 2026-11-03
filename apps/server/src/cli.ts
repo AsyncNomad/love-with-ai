@@ -1,7 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { defaultConfig } from '@heart/config'
-import { LlamaCppLlm } from '@heart/inference'
 import { auditRun } from '@heart/runtime'
 import { SqliteRunStore } from '@heart/store'
 import { readEnv } from './env'
@@ -72,25 +71,19 @@ async function doctor(): Promise<number> {
     checks.push([`메모리 총량 ${(mem.totalMb / 1024).toFixed(1)}GB (필요: 7.5GB 이상)`, mem.totalMb >= 7_500, 'WSL 메모리가 부족합니다. %UserProfile%\\.wslconfig 의 [wsl2] memory 값을 늘리세요'])
     checks.push([`지금 쓸 수 있는 메모리 ${(mem.availableMb / 1024).toFixed(1)}GB (권장: 6GB 이상)`, mem.availableMb >= 6_000, '실행 전에 무거운 IDE·언어 서버(예: Dart/Flutter 분석기)를 닫으세요'])
   }
-  checks.push([`LLM_MODE=${env.llmMode}`, true, ''])
-  if (env.llmMode === 'llamacpp') {
-    checks.push([`llama-server 바이너리 ${env.llamaBin}`, existsSync(env.llamaBin), 'WSL에서 CUDA로 빌드한 llama-server를 bin/에 두거나 LLAMA_BIN을 지정'])
-    checks.push([`모델 ${env.llamaModel}`, existsSync(env.llamaModel), 'Qwen3.5-4B Q4_K_M GGUF를 models/에 두거나 LLAMA_MODEL을 지정'])
+  // 플레이는 항상 실제 모델로 한다(D32). 필요한 파일이 모두 있어야 서버가 시작된다.
+  for (const [label, path, fix] of [
+    ['llama-server', env.llamaBin, 'npm run setup:llm'],
+    ['Qwen3.5-4B 모델', env.llamaModel, 'npm run setup:llm'],
+    ['sd-cli', env.sdBin, 'npm run setup:image'],
+    ['FLUX.2 klein 4B', env.sdDiffusionModel, 'npm run setup:image'],
+    ['VAE', env.sdVae, 'npm run setup:image'],
+    ['Qwen3-4B 텍스트 인코더', env.sdTextEncoder, 'npm run setup:image'],
+  ] as const) {
+    checks.push([`${label} ${path}`, existsSync(path), fix])
   }
-  if (env.llmMode !== 'fake') {
-    const ok = await new LlamaCppLlm({ baseUrl: env.llamaUrl, timeoutMs: 3000 }).health()
-    checks.push([`llama-server 응답 ${env.llamaUrl}/health`, ok || env.llmMode === 'llamacpp', '외부 모드라면 llama-server를 먼저 실행'])
-  }
-  if (env.imageMode === 'sdcpp') {
-    for (const [label, path] of [
-      ['sd-cli', env.sdBin],
-      ['FLUX.2 klein 4B', env.sdDiffusionModel],
-      ['VAE', env.sdVae],
-      ['Qwen3-4B 텍스트 인코더', env.sdTextEncoder],
-    ] as const) {
-      checks.push([`${label} ${path}`, existsSync(path), `${label} 경로를 확인`])
-    }
-  }
+  const vramNote = env.notes.find((n) => n.includes('VRAM'))
+  checks.push([`llama.cpp 컨텍스트 ${env.contextSize}`, !vramNote, vramNote ?? ''])
   let bad = 0
   for (const [label, ok, fix] of checks) {
     console.log(`${ok ? '✓' : '✗'} ${label}${ok || !fix ? '' : `\n    → ${fix}`}`)
