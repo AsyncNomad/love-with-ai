@@ -35,7 +35,37 @@ export function normalizeUtterance(raw: string, speakerName: string): string {
   let text = unquote(raw)
   const m = SPEAKER_LABEL.exec(text)
   if (m && (m[1] === speakerName || m[1] === givenName(speakerName))) text = unquote(text.slice(m[0].length))
-  return text.replace(/\s*\n+\s*/g, ' ').trim()
+  return fixGrammar(text.replace(/\s*\n+\s*/g, ' ').trim())
+}
+
+/** 소형 모델이 자주 틀리는 1인칭 조사(실측: "저가 베이킹을…", "제가도 좋아해요"). */
+function fixGrammar(text: string): string {
+  return text.replace(/(^|[\s,])저가(?=\s)/g, '$1제가').replace(/제가도/g, '저도')
+}
+
+/** 문장 단위로 나눈다(마침표·물음표·느낌표·물결 뒤 공백). */
+export function sentencesOf(text: string): string[] {
+  const out: string[] = []
+  for (const part of text.split(/(?<=[.!?~])\s+/).map((s) => s.trim())) {
+    if (part.length === 0) continue
+    // 이모티콘·웃음만 있는 조각은 앞 문장에 붙인다(그 문장과 함께 남거나 지워진다).
+    if (!/[가-힣A-Za-z0-9]/.test(part) && out.length > 0) out[out.length - 1] += ` ${part}`
+    else out.push(part)
+  }
+  return out
+}
+
+/**
+ * 이 방에서 최근에 나온 문장(본인·다른 사람 모두)을 되풀이한 문장을 지운다.
+ * 실측: 다른 참가자의 말을 이모티콘까지 그대로 옮기거나("저도요! 제가 주말에 러닝도 해요. 😄"),
+ * 매 메시지 끝에 같은 문장("지수 씨랑 함께 뛰는 게 정말 좋겠네요")을 붙였다. 메시지 전체 유사도로는 잡히지 않는다.
+ * 남는 문장이 없으면 빈 문자열을 돌려준다(호출자가 반복으로 거부한다).
+ */
+export function dropEchoedSentences(text: string, recent: readonly string[], threshold = 0.6): string {
+  const seen = recent.flatMap(sentencesOf).filter((s) => s.replace(/\s/g, '').length >= 8)
+  if (seen.length === 0) return text
+  const kept = sentencesOf(text).filter((s) => s.replace(/\s/g, '').length < 8 || !seen.some((r) => isRepeat(r, s, threshold) || similarity(r, s) >= threshold))
+  return kept.join(' ')
 }
 
 /** 문장 경계에서 잘라 길이를 맞춘다. 자를 수 없으면 null. */
@@ -90,7 +120,7 @@ export function isPolite(text: string): boolean {
 const TAIL = String.raw`\s*[.!?~ㅋㅎ,\s]*$`
 const CASUAL_ENDING = new RegExp(String.raw`(?:[다야자어아해지냐니래게걸까러봐줘와돼워든군]|(?<=[가-힣])네|구나)` + TAIL)
 /** 마지막이 아닌 문장에서 반말로 보는 어미. "맛있겠다!" 같은 혼잣말 감탄(-다)은 존댓말 사이에서도 흔해서 뺀다. */
-const STRONG_CASUAL_ENDING = new RegExp(String.raw`(?:[야자어아해지냐줘워]|(?<=[가-힣])네|거든|구나)` + TAIL)
+const STRONG_CASUAL_ENDING = new RegExp(String.raw`(?:[야자어아해지냐줘워까]|(?<=[가-힣])네|거든|구나)` + TAIL)
 
 /**
  * 분명한 반말 어미로 끝나는 문장이 있는가. 감탄사·짧은 반응("ㅋㅋㅋ", "오 진짜", "네!")은 반말로 보지 않는다.

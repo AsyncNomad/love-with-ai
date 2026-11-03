@@ -44,7 +44,7 @@ export const signalCardTask: TaskSpec<SignalCardInput, { target: string; text: s
       `[출력 규칙]\nJSON으로만 답한다: {"target":"이름 또는 ${NONE}","text":"카드 내용"}. 카드 내용은 ${max}자 이내, 존댓말로 쓴다.`,
     )
     const user = joinSections(
-      `[익명 시그널 카드]\n마음이 가는 이성 한 명에게 이름을 밝히지 않는 짧은 카드를 보낸다. 받는 사람은 누가 보냈는지 모른다.\n네 이름은 절대 쓰지 않는다. 함께 나눈 대화를 떠올리게 하는 힌트는 써도 된다. 마음이 가는 사람이 없으면 "${NONE}"을 고른다.`,
+      `[익명 시그널 카드]\n마음이 가는 이성 한 명에게 이름을 밝히지 않는 짧은 카드를 보낸다. 받는 사람은 누가 보냈는지 모른다.\n카드 내용은 받는 사람에게 직접 건네는 말로, 함께 나눈 구체적인 순간이나 그 사람의 좋았던 점을 한두 문장으로 쓴다. 카드나 익명이라는 사실 자체는 이야기하지 않는다.\n네 이름은 절대 쓰지 않는다. 마음이 가는 사람이 없으면 "${NONE}"을 고른다.`,
       `[후보]\n${lines}`,
       privateSignalsSection(view),
     )
@@ -60,6 +60,8 @@ export const signalCardTask: TaskSpec<SignalCardInput, { target: string; text: s
     const normalized = normalizeUtterance(raw.text, self.name)
     const text = fitLength(normalized, max) ?? normalized
     if (containsName(text, self.name)) return { issues: ['sender_name'] }
+    // 실측: "혹시 그분에게 이 카드가 닿을까요?"처럼 받는 사람이 아니라 카드 자체를 말하는 문장이 나왔다.
+    if (/카드|그분|익명/.test(text)) return { issues: ['card_meta'] }
     const knownNames = [...view.knownNames()].filter((id) => id !== i.senderId).map((id) => view.known(id).name).filter((n): n is string => n !== null)
     const issues = checkDialogue(
       { text, speakerName: self.name, maxChars: max, unknownNames: view.unknownNames(), recentOwn: [], mustBePolite: view.speechLevel(targetId) === 'polite', knownNames },

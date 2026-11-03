@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { defaultConfig } from '@heart/config'
-import { checkDialogue, fitLength, fixAddress, hasCasualWord, hasEnglishWord, hasForeignScript, isCasual, isPolite, isRepeat, limitLaughter, normalizeUtterance, similarity } from '../src'
+import { checkDialogue, dropEchoedSentences, fitLength, fixAddress, hasCasualWord, hasEnglishWord, hasForeignScript, isCasual, isPolite, isRepeat, limitLaughter, normalizeUtterance, similarity } from '../src'
 
 const cfg = defaultConfig.validation
 const base = { speakerName: '정하린', maxChars: 80, unknownNames: [] as string[], recentOwn: [] as string[] }
@@ -134,5 +134,22 @@ describe('natural Korean address and speech level (from real-model play)', () =>
     expect(fixAddress('수아 씨는 주말에 뭐 하세요?', names, true)).toBe('수아 씨는 주말에 뭐 하세요?')
     expect(fixAddress('저는 김우진이에요.', names, true)).toBe('저는 김우진이에요.')
     expect(fixAddress('안녕하세요, 우진!', names, false)).toBe('안녕하세요, 우진!')
+  })
+})
+
+describe('echo and grammar (from the 3-day real-model run)', () => {
+  it('drops sentences copied from anyone in the room and keeps new ones', () => {
+    expect(dropEchoedSentences('저도요! 제가 주말에 러닝도 해요. 😄', ['저도요! 같이 뛸 사람 찾고 계시나요? 제가 주말에 러닝도 해요. 😄'])).toBe('저도요!')
+    expect(dropEchoedSentences('영화는 어떤 장르를 주로 보시나요? 지수 씨랑 함께 뛰는 게 정말 좋겠네요.', ['저도 주말엔 가끔 러닝을 하거든요. 지수 씨랑 함께 뛰는 게 정말 좋겠네요.'])).toBe('영화는 어떤 장르를 주로 보시나요?')
+    expect(dropEchoedSentences('그건 처음 들어 보네요.', ['저는 주말에 한강에서 자주 뛰어요'])).toBe('그건 처음 들어 보네요.')
+    expect(dropEchoedSentences('그럼 반말로 지내보는 건 어떨까요.', ['그럼 반말로 지내보는 건 어떨까요.'])).toBe('')
+  })
+  it('fixes common first-person particle mistakes', () => {
+    expect(normalizeUtterance('저가 베이킹 하는 걸 좋아해요', '정하린')).toBe('제가 베이킹 하는 걸 좋아해요')
+    expect(normalizeUtterance('그건 제가도 좋아하는 것 같아요', '정하린')).toBe('그건 저도 좋아하는 것 같아요')
+  })
+  it('treats a mid-message casual question as casual', () => {
+    expect(isCasual('아, 그럼 주원 씨랑 뛸까? 음악 들으며 뛰는 게 좀 다르긴 하네요.')).toBe(true)
+    expect(isCasual('같이 가 볼까요? 재밌을 것 같아요.')).toBe(false)
   })
 })

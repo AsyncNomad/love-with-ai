@@ -3,7 +3,7 @@ import type { ParticipantId, RoomId } from '@heart/shared'
 import { ObservationView } from '../observation'
 import { COMMON_RULES, conversationSection, joinSections, memorySection, peopleSection, personaSection, situationSection } from '../prompts'
 import type { TaskSpec } from '../task'
-import { checkDialogue, fitLength, fixAddress, limitLaughter, normalizeUtterance } from '../validate'
+import { checkDialogue, dropEchoedSentences, fitLength, fixAddress, limitLaughter, normalizeUtterance } from '../validate'
 
 export type DialogueMode = 'reply' | 'start_topic' | 'greeting' | 'newcomer_greeting' | 'open_private' | 'wrap_up' | 'follow_up'
 
@@ -83,8 +83,12 @@ export const dialogueTask: TaskSpec<DialogueInput, { action: 'speak' | 'silent';
       .map((id) => view.known(id).name)
       .filter((n): n is string => n !== null)
     const addressed = fixAddress(normalizeUtterance(raw.text, speakerName), knownNames, mustBePolite)
-    const normalized = limitLaughter(addressed, cast?.speech.laughter ?? 0)
-    if (normalized.length === 0) return { value: { text: null } }
+    const laughed = limitLaughter(addressed, cast?.speech.laughter ?? 0)
+    if (laughed.length === 0) return { value: { text: null } }
+    // 이 방의 최근 문장(누가 했든)을 되풀이한 문장은 지운다. 다 지워지면 반복으로 거부하고 다시 만든다.
+    const recentRoom = view.roomMessages(i.roomId, 10, 2000).filter((m) => m.speakerId !== 'pd').map((m) => m.text)
+    const normalized = dropEchoedSentences(laughed, recentRoom)
+    if (normalized.length === 0) return { issues: ['repetition'] }
     const fitted = fitLength(normalized, maxChars) ?? normalized
     const issues = checkDialogue(
       {

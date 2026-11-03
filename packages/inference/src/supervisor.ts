@@ -54,6 +54,11 @@ export interface LlamaServerOptions {
   host: string
   port: number
   contextSize: number
+  /**
+   * 호스트 RAM 프롬프트 캐시 상한(MiB, `--cache-ram`). llama.cpp 기본값은 8192라서, 3일을 도는 동안
+   * 캐시가 계속 쌓여 RAM 16GB PC의 WSL 몫(약 8GB)을 다 쓴다(실측, docs/status.md). 0이면 끈다.
+   */
+  cacheRamMiB: number
   gpuLayers: number
   parallel: number
   extraArgs?: string[]
@@ -111,6 +116,7 @@ export class LlamaServerProcess implements ManagedProcess {
       '-m', o.model,
       '-ngl', String(o.gpuLayers),
       '-c', String(o.contextSize),
+      '--cache-ram', String(o.cacheRamMiB),
       '-np', String(o.parallel),
       '--jinja',
       '--host', o.host,

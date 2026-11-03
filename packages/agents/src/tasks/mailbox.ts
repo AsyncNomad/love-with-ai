@@ -60,6 +60,8 @@ export const mailboxQuestionTask: TaskSpec<MailboxQuestionInput, { target: strin
     const max = ctx.config.validation.maxChars.mailbox
     const normalized = normalizeUtterance(raw.text, self.name)
     const text = fitLength(normalized, max) ?? normalized
+    // 실측: 질문 대신 감상만 쓴 경우가 있었다("음악과 함께 하는 건 정말 감동적인 일 같아요.").
+    if (!text.includes('?')) return { issues: ['not_question'] }
     const issues = checkDialogue(
       { text, speakerName: self.name, maxChars: max, unknownNames: view.unknownNames(), recentOwn: [], mustBePolite: view.speechLevel(targetId) === 'polite', knownNames: namesKnownTo(view, i.askerId) },
       ctx.config.validation,

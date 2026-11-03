@@ -97,7 +97,7 @@ async function driveCmd(args: string[]): Promise<number> {
   const reason = await drive({
     url: flag(args, '--url') ?? `ws://127.0.0.1:${env.port}/ws`,
     profile: args.includes('--create') ? DEFAULT_SIM_HUMAN : null,
-    chatEveryMs: Number(flag(args, '--chat-every') ?? 9000),
+    chatEveryMs: Number(flag(args, '--chat-every') ?? 25000),
     log: (line) => console.log(`[drive] ${line}`),
   })
   console.log(`[drive] finished: ${reason}`)

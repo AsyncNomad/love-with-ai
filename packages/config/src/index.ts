@@ -96,7 +96,7 @@ export const defaultConfig: GameConfig = {
     },
     maxRespondersToHuman: 2,
     maxChainAfterHuman: 3,
-    maxConsecutive: 2,
+    maxConsecutive: 1,
     followUpChance: 0.55,
     quietThresholdMs: 480_000,
     recentWindow: 10,

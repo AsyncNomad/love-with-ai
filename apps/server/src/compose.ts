@@ -26,6 +26,7 @@ export function buildInference(env: ServerEnv, requestTimeoutMs: number, log: (l
     host: '127.0.0.1',
     port: env.llamaPort,
     contextSize: env.contextSize,
+    cacheRamMiB: env.cacheRamMiB,
     gpuLayers: 99,
     parallel: 1,
     startupTimeoutMs: 120_000,

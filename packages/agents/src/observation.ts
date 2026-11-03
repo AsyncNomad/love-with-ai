@@ -126,16 +126,16 @@ export class ObservationView {
   private signalLine(e: AnyEvent): string | null {
     switch (e.type) {
       case 'SIGNAL_CARD_RECEIVED':
-        return e.payload.recipientId === this.ownerId ? `누군가 나에게 익명 시그널 카드를 보냈다: "${e.payload.text}"` : null
+        return e.payload.recipientId === this.ownerId ? `[받은 카드] 보낸 사람을 모르는 카드가 나에게 왔다: "${e.payload.text}"` : null
       case 'SIGNAL_CARD_SENT':
         if (e.payload.senderId !== this.ownerId) return null
-        return e.payload.targetId ? `내가 ${this.label(e.payload.targetId)}에게 익명 시그널 카드를 보냈다: "${e.payload.text}"` : '시그널 카드를 아무에게도 보내지 않았다.'
+        return e.payload.targetId ? `[보낸 카드] 내가 ${this.label(e.payload.targetId)}에게 보냈다(상대는 내가 보낸 줄 모른다): "${e.payload.text}"` : '[보낸 카드] 아무에게도 보내지 않았다.'
       case 'MAILBOX_QUESTION':
         return e.payload.askerId === this.ownerId
-          ? `내가 우체통으로 ${this.label(e.payload.targetId)}에게 물었다: "${e.payload.text}"`
-          : `${this.label(e.payload.askerId)}이(가) 우체통으로 나에게 물었다: "${e.payload.text}"`
+          ? `[우체통] 내가 ${this.label(e.payload.targetId)}에게 물었다: "${e.payload.text}"`
+          : `[우체통] ${this.label(e.payload.askerId)}이(가) 나에게 물었다: "${e.payload.text}"`
       case 'MAILBOX_ANSWER':
-        return e.payload.answererId === this.ownerId ? `나는 우체통 질문에 이렇게 답했다: "${e.payload.text}"` : `${this.label(e.payload.answererId)}이(가) 내 우체통 질문에 답했다: "${e.payload.text}"`
+        return e.payload.answererId === this.ownerId ? `[우체통] 내가 받은 질문에 답했다: "${e.payload.text}"` : `[우체통] ${this.label(e.payload.answererId)}이(가) 내 질문에 답했다: "${e.payload.text}"`
       default:
         return null
     }

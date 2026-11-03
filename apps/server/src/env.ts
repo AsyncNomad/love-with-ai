@@ -19,6 +19,8 @@ export interface ServerEnv {
   llamaModel: string
   llamaPort: number
   contextSize: number
+  /** llama-server 호스트 프롬프트 캐시 상한(MiB). */
+  cacheRamMiB: number
   sdBin: string
   sdDiffusionModel: string
   sdVae: string
@@ -33,6 +35,11 @@ export interface ServerEnv {
 
 /** 최소 사양(VRAM 8GB)의 기본 컨텍스트(D26). */
 export const DEFAULT_CONTEXT = 102_400
+/**
+ * llama-server 프롬프트 캐시 상한 기본값(MiB). llama.cpp 기본값 8192를 그대로 두면 3일 플레이 중 RAM이 7.7GB까지 찼다(실측).
+ * 1024면 16GB PC에서도 여유가 있고, 같은 인물의 고정 프롬프트 앞부분 재사용 효과는 남는다.
+ */
+export const DEFAULT_CACHE_RAM_MIB = 1024
 /** VRAM이 최소 사양보다 작을 때 쓰는 컨텍스트. 최소 사양 미만은 지원 대상이 아니지만 실행은 되게 한다. */
 const SMALL_GPU_CONTEXT = 32_768
 
@@ -86,6 +93,7 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env, root = resolve(imp
     llamaModel,
     llamaPort,
     contextSize,
+    cacheRamMiB: Number(env.LLAMA_CACHE_RAM ?? DEFAULT_CACHE_RAM_MIB),
     sdBin,
     sdDiffusionModel,
     sdVae,

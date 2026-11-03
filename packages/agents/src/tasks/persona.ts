@@ -21,7 +21,12 @@ function structural(cast: CastParticipant): string {
   ].join('\n')
 }
 
-const SYSTEM = '너는 연애 리얼리티 프로그램의 가상 출연자 설정을 쓰는 작가다. 주어진 사실은 절대 바꾸지 않는다. 평범하고 현실적인 한국 20~30대처럼 쓴다. 지나치게 완벽하거나 모두에게 다정한 인물로 만들지 않는다. 실존 인물을 언급하지 않는다.'
+const SYSTEM = '너는 연애 리얼리티 프로그램의 가상 출연자 설정을 쓰는 작가다. 주어진 사실은 절대 바꾸지 않는다. 평범하고 현실적인 한국 20~30대처럼 쓴다. 지나치게 완벽하거나 모두에게 다정한 인물로 만들지 않는다. 실존 인물을 언급하지 않는다. 처음 만난 사람에게는 누구나 존댓말을 쓴다. 반말이나 사투리를 쓰는 설정은 넣지 않는다.'
+
+const SPEECH_TOPIC = /반말|사투리/
+
+/** 말투 설명은 설명문이어야 한다(실측: "아무튼 그거야 그거야,ㅋㅋ 그거야, 😄"처럼 대사를 쓴 경우가 있었다). */
+const DESCRIPTIVE_END = /(다|말투|스타일|편|톤|어조|방식)\.?$/
 
 export type PersonaProfile = Pick<PersonaFlavor, 'background' | 'values' | 'likes' | 'flaws' | 'approach'>
 
@@ -39,7 +44,12 @@ export const personaProfileTask: TaskSpec<{ cast: CastParticipant }, PersonaProf
     view: null,
     meta: { name: i.cast.name },
   }),
-  finish: (raw) => (Object.values(raw).some(hasForeignScript) ? { issues: ['foreign_script'] } : { value: raw }),
+  finish: (raw) => {
+    if (Object.values(raw).some(hasForeignScript)) return { issues: ['foreign_script'] }
+    // "반말·사투리로 편하게 다가간다" 같은 설정은 대화 내내 반말 이야기로 번지고 존댓말 검증과 부딪힌다(실측).
+    if (Object.values(raw).some((v) => SPEECH_TOPIC.test(v))) return { issues: ['speech_level'] }
+    return { value: raw }
+  },
 }
 
 export interface PersonaVoiceInput {
@@ -69,7 +79,7 @@ export const personaVoiceTask: TaskSpec<PersonaVoiceInput, PersonaVoice, Persona
     ].join(', ')
     return {
       system: SYSTEM,
-      user: `[정해진 사실]\n${structural(i.cast)}\n성향: ${i.profile.approach}\n말버릇 힌트: ${hints}\n\n[쓸 것] JSON으로만 답한다.\n- speechDescription: 이 사람의 메신저 말투를 한 문장으로(어미, 말버릇, 리듬).\n- exampleLines: 이 사람이 대화 중에 할 법한 말 5개. 순서대로 상대 말에 맞장구, 상대 말에 공감하며 자기 경험을 짧게 덧붙이는 말, 놀라거나 신기할 때 하는 말, 가벼운 농담, 쑥스럽거나 곤란할 때 하는 말. 인사말·자기소개·질문은 쓰지 않는다. 번호나 따옴표 없이 대사만 쓴다. 다른 사람 이름은 쓰지 않는다. 처음 만난 사이라 존댓말을 쓰고, 한국 사람이 실제로 쓰는 자연스러운 말투로 쓴다.`,
+      user: `[정해진 사실]\n${structural(i.cast)}\n성향: ${i.profile.approach}\n말버릇 힌트: ${hints}\n\n[쓸 것] JSON으로만 답한다.\n- speechDescription: 이 사람의 메신저 말투를 설명하는 한 문장(어미, 말버릇, 리듬). 대사가 아니라 "~하는 말투"처럼 설명으로 쓴다.\n- exampleLines: 이 사람이 대화 중에 할 법한 말 5개. 순서대로 상대 말에 맞장구, 상대 말에 공감하며 자기 경험을 짧게 덧붙이는 말, 놀라거나 신기할 때 하는 말, 가벼운 농담, 쑥스럽거나 곤란할 때 하는 말. 인사말·자기소개·질문은 쓰지 않는다. 번호나 따옴표 없이 대사만 쓴다. 다른 사람 이름은 쓰지 않는다. 처음 만난 사이라 존댓말을 쓰고, 한국 사람이 실제로 쓰는 자연스러운 말투로 쓴다.`,
       view: null,
       meta: { name: i.cast.name },
     }
@@ -90,6 +100,7 @@ export const personaVoiceTask: TaskSpec<PersonaVoiceInput, PersonaVoice, Persona
     // 처음 만난 사이의 예시 대사는 존댓말이어야 한다. 반말 예시는 실제 대화도 반말로 끌고 간다(실측).
     if (lines.filter(isPolite).length < 3 || lines.some((l) => hasCasualWord(l))) return { issues: ['not_polite'] }
     if (hasForeignScript(raw.speechDescription)) return { issues: ['foreign_script'] }
+    if (SPEECH_TOPIC.test(raw.speechDescription) || !DESCRIPTIVE_END.test(raw.speechDescription.trim())) return { issues: ['bad_description'] }
     const overlap = lines.filter((l) => i.othersLines.some((o) => similarity(o, l) >= 0.5)).length
     if (overlap >= 2) return { issues: ['persona_overlap'] }
     const description = i.cast.speech.laughter >= LAUGH_THRESHOLD ? raw.speechDescription.trim() : limitLaughter(raw.speechDescription.replace(/['"]?ㅋ+['"]?(를|와|나|도)?/g, ''), 0)

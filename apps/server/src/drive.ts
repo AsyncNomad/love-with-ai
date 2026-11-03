@@ -13,14 +13,20 @@ export interface DriveOptions {
   log: (line: string) => void
 }
 
+/** 같은 문장을 되풀이하면 AI가 대화를 그 화제로만 끌고 가고, 사람을 "반복이 심하다"고 평가한다(실측). 최근에 쓴 문장은 피한다. */
 const LINES = [
-  '안녕하세요! 다들 반가워요',
-  '혹시 쉬는 날엔 뭐 하세요?',
   '저는 영화 보는 거 좋아해요. 최근에 본 거 있으세요?',
-  'ㅋㅋㅋ 그거 저도 공감돼요',
-  '러닝 하시는 분 계세요? 같이 뛸 사람 찾고 있어요',
+  '그 얘기 재밌네요. 조금 더 듣고 싶어요',
   '여기 분위기 생각보다 편하네요',
   '음식은 뭐 좋아하세요?',
+  '저는 주말에 한강에서 자주 뛰어요',
+  '아 그렇구나, 저랑은 좀 다르네요',
+  '요즘 일이 바빠서 쉬는 날이 소중해요',
+  '여행 가면 계획 세우는 편이세요?',
+  '오늘 하루 어떠셨어요?',
+  '저도 비슷하게 생각해요',
+  '커피보다는 차를 더 좋아해요',
+  '처음엔 어색했는데 이제 좀 편해졌어요',
 ]
 
 export function drive(opts: DriveOptions): Promise<string> {
@@ -30,6 +36,7 @@ export function drive(opts: DriveOptions): Promise<string> {
     let counter = 0
     let created = false
     const answered = new Set<string>()
+    const recentLines: string[] = []
     const send = (command: Command): void => {
       const msg: ClientMessage = { type: 'command', commandId: `drive-${++counter}`, command }
       ws.send(JSON.stringify(msg))
@@ -40,7 +47,12 @@ export function drive(opts: DriveOptions): Promise<string> {
         .filter((r) => r.kind !== 'pd' && r.isMember && r.status === 'open')
         .sort((a, b) => b.lastActivitySeq - a.lastActivitySeq)
       const room = rooms[0]
-      if (room) send({ type: 'sendMessage', roomId: room.id, text: LINES[Math.floor(Math.random() * LINES.length)] as string })
+      if (!room) return
+      const fresh = LINES.filter((l) => !recentLines.includes(l))
+      const line = fresh[Math.floor(Math.random() * fresh.length)] ?? (LINES[0] as string)
+      recentLines.push(line)
+      if (recentLines.length > 6) recentLines.shift()
+      send({ type: 'sendMessage', roomId: room.id, text: line })
     }, opts.chatEveryMs)
 
     const react = (): void => {
