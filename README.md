@@ -11,7 +11,7 @@
 
 ```bash
 nvm use && corepack enable pnpm && pnpm install   # 설치는 pnpm (workspace:* 의존성 때문)
-npm run dev                 # 개발: 서버 + Vite(HMR) → http://127.0.0.1:5173 (GPU 없이 도는 fake 모드)
+npm run dev                 # 개발: 서버 + Vite(HMR) → http://127.0.0.1:5173 (모델이 설치돼 있으면 실제 AI, 없으면 테스트 모드)
 npm run start               # 실행: 웹을 빌드한 뒤 서버 하나로 → http://127.0.0.1:8787
 TIME_SCALE=0.1 npm run dev  # 단계 시간을 10분의 1로
 npm run check               # 타입·린트·계층 규칙·테스트
@@ -27,7 +27,7 @@ export NVM_DIR="$HOME/.nvm"
 
 스크립트는 `npm run`과 `pnpm` 어느 쪽으로 실행해도 같다. 내부에서 pnpm을 부르므로 pnpm이 설치되어 있어야 한다.
 
-실제 모델 모드와 환경 변수는 [docs/status.md](docs/status.md)를 본다.
+실제 모델 설치(`npm run setup:llm`, `npm run setup:image`)와 환경 변수는 [docs/status.md](docs/status.md)를 본다. GPU 없이 빠르게 확인하려면 `LLM_MODE=fake npm run dev`.
 
 ## 문서
 

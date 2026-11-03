@@ -32,6 +32,15 @@
   letter-spacing: 0.02em;
 }
 
+.testMode {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #fff4e5;
+  color: #a35a00;
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .stage {
   font-size: 13px;
   color: var(--muted);

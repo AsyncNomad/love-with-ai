@@ -8,7 +8,7 @@ import Fastify from 'fastify'
 import type { WebSocket } from 'ws'
 import { defaultConfig, withTimeScale } from '@heart/config'
 import { Game, realTimerHost } from '@heart/runtime'
-import { clientMessageSchema, emptyHumanView, type ServerMessage, type ViewPatch } from '@heart/shared'
+import { clientMessageSchema, emptyHumanView, type ServerInfo, type ServerMessage, type ViewPatch } from '@heart/shared'
 import { SqliteRunStore } from '@heart/store'
 import { FsAvatarStore, buildInference } from './compose'
 import { readEnv } from './env'
@@ -18,6 +18,7 @@ const config = withTimeScale(defaultConfig, env.timeScale)
 const app = Fastify({ logger: { level: 'info' } })
 const inference = buildInference(env, config.llm.requestTimeoutMs, (line) => app.log.debug(line))
 const avatars = new FsAvatarStore(env.runsDir)
+const serverInfo: ServerInfo = { llmMode: env.llmMode, imageMode: env.imageMode }
 
 interface ActiveRun {
   game: Game
@@ -35,13 +36,13 @@ function attach(ws: WebSocket): void {
   clients.get(ws)?.()
   if (!active) {
     clients.set(ws, () => {})
-    send(ws, { type: 'snapshot', view: emptyHumanView() })
+    send(ws, { type: 'snapshot', view: emptyHumanView(), server: serverInfo })
     return
   }
   const game = active.game
   const unsub = game.projector.subscribe((patches: ViewPatch[]) => send(ws, { type: 'patch', patches }))
   clients.set(ws, unsub)
-  send(ws, { type: 'snapshot', view: game.projector.snapshot() })
+  send(ws, { type: 'snapshot', view: game.projector.snapshot(), server: serverInfo })
 }
 
 function newRunId(): string {
@@ -143,4 +144,5 @@ process.on('SIGINT', () => void shutdown())
 process.on('SIGTERM', () => void shutdown())
 
 await app.listen({ port: env.port, host: env.host })
-app.log.info(`Heart House server on http://${env.host}:${env.port} (llm=${env.llmMode}, image=${env.imageMode}, timeScale=${env.timeScale})`)
+app.log.info(`Heart House server on http://${env.host}:${env.port} (llm=${env.llmMode}, image=${env.imageMode}, ctx=${env.contextSize}, timeScale=${env.timeScale})`)
+for (const note of env.notes) app.log.warn(note)

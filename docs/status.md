@@ -25,14 +25,14 @@ TIME_SCALE=0.1 npm run dev   # 단계 시간을 10분의 1로 줄여서 빠르�
 
 `npm run`과 `pnpm`은 스크립트 실행기로서는 같다. 스크립트가 내부에서 pnpm을 부르므로 pnpm(corepack)은 있어야 한다.
 
-기본은 GPU 없이 도는 fake 모드다(`LLM_MODE=fake`, `IMAGE_MODE=fake`). 실제 모델 모드는 아래 "Phase 1에서 할 일"을 본다.
+기본은 자동이다. `bin/`과 `models/`에 llama-server와 모델이 있으면 실제 모델로, 없으면 GPU 없이 도는 테스트 모드(가짜 AI)로 시작한다. 테스트 모드일 때는 화면 사이드바에 "테스트 모드 · AI 응답이 가짜입니다"가 표시된다. 설치는 아래 "Phase 1 설치 절차"를 본다.
 
 | 환경 변수 | 기본값 | 뜻 |
 |---|---|---|
-| `LLM_MODE` | `fake` | `fake` / `llamacpp`(서버가 llama-server를 띄우고 GPU를 교대) / `external`(이미 떠 있는 llama-server에 붙음, 사진 생성 생략) |
-| `IMAGE_MODE` | fake 모드면 `fake`, 아니면 `off` | `fake` / `sdcpp` / `off` |
+| `LLM_MODE` | `auto` | `auto`(설치돼 있으면 llamacpp, 아니면 fake) / `fake` / `llamacpp`(서버가 llama-server를 띄우고 GPU를 교대) / `external`(이미 떠 있는 llama-server에 붙음, 사진 생성 생략) |
+| `IMAGE_MODE` | `auto` | `auto`(LLM이 fake면 fake, llamacpp이고 sd.cpp가 설치돼 있으면 sdcpp, 아니면 off) / `fake` / `sdcpp` / `off` |
 | `TIME_SCALE` | `1` | 단계 시간 배율 |
-| `LLAMA_BIN`, `LLAMA_MODEL`, `LLAMA_PORT`, `LLAMA_CTX` | `bin/llama-server`, `models/Qwen3.5-4B-Q4_K_M.gguf`, `8080`, `102400` | llama.cpp |
+| `LLAMA_BIN`, `LLAMA_MODEL`, `LLAMA_PORT`, `LLAMA_CTX` | `bin/llama-server`, `models/Qwen3.5-4B-Q4_K_M.gguf`, `8080`, 자동 | llama.cpp. 컨텍스트는 기본 102400이고, VRAM이 최소 사양보다 작으면 32768로 줄이며 시작 로그에 경고를 남긴다 |
 | `SD_BIN`, `SD_DIFFUSION_MODEL`, `SD_VAE`, `SD_TEXT_ENCODER` | `bin/sd-cli`, `models/flux-2-klein-4b-Q4_0.gguf`, `models/flux2-small-decoder.safetensors`, `models/Qwen3-4B-Q4_K_M.gguf` | stable-diffusion.cpp. 기본값은 `setup:image`가 받는 파일과 같다 |
 | `SD_EXTRA_ARGS` | 없음 | sd-cli에 덧붙일 인자(예: VRAM이 부족할 때 `--offload-to-cpu`) |
 | `LLAMA_EXTRA_ARGS` | 없음 | llama-server에 덧붙일 인자 |
