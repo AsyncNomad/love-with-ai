@@ -24,6 +24,7 @@ function structural(cast: CastParticipant): string {
 const SYSTEM = '너는 연애 리얼리티 프로그램의 가상 출연자 설정을 쓰는 작가다. 주어진 사실은 절대 바꾸지 않는다. 평범하고 현실적인 한국 20~30대처럼 쓴다. 지나치게 완벽하거나 모두에게 다정한 인물로 만들지 않는다. 실존 인물을 언급하지 않는다. 처음 만난 사람에게는 누구나 존댓말을 쓴다. 반말이나 사투리를 쓰는 설정은 넣지 않는다.'
 
 const SPEECH_TOPIC = /반말|사투리/
+const PERSONA_ATTEMPTS = 4
 
 /** 말투 설명은 설명문이어야 한다(실측: "아무튼 그거야 그거야,ㅋㅋ 그거야, 😄"처럼 대사를 쓴 경우가 있었다). */
 const DESCRIPTIVE_END = /(다|말투|스타일|편|톤|어조|방식)\.?$/
@@ -37,6 +38,8 @@ export const personaProfileTask: TaskSpec<{ cast: CastParticipant }, PersonaProf
   ownerOf: (i) => i.cast.id,
   sampling: (ctx) => ctx.config.llm.persona,
   maxTokens: (ctx) => ctx.config.llm.maxTokens.persona_profile ?? 420,
+  // 인격은 3일 내내 쓰이고, 실패하면 밋밋한 템플릿으로 대체된다. 캐스팅 때 한 번뿐이라 몇 번 더 시도한다(실측: 7명 중 3명 대체).
+  attempts: () => PERSONA_ATTEMPTS,
   schema: () => z.object({ background: field, values: field, likes: field, flaws: field, approach: field }),
   build: (i) => ({
     system: SYSTEM,
@@ -69,6 +72,7 @@ export const personaVoiceTask: TaskSpec<PersonaVoiceInput, PersonaVoice, Persona
   ownerOf: (i) => i.cast.id,
   sampling: (ctx) => ctx.config.llm.persona,
   maxTokens: (ctx) => ctx.config.llm.maxTokens.persona_voice ?? 360,
+  attempts: () => PERSONA_ATTEMPTS,
   schema: () => z.object({ speechDescription: z.string().min(4).max(140), exampleLines: z.array(z.string().min(2).max(70)).length(5) }),
   build: (i) => {
     const s = i.cast.speech

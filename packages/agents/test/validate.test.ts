@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { defaultConfig } from '@heart/config'
-import { checkDialogue, dropEchoedSentences, fitLength, fixAddress, hasCasualWord, hasEnglishWord, hasForeignScript, isCasual, isPolite, isRepeat, limitLaughter, normalizeUtterance, similarity } from '../src'
+import { asQuestion, checkDialogue, dropEchoedSentences, fitLength, fixAddress, hasCasualWord, hasEnglishWord, hasForeignScript, isCasual, isPolite, isRepeat, limitLaughter, normalizeUtterance, similarity } from '../src'
 
 const cfg = defaultConfig.validation
 const base = { speakerName: '정하린', maxChars: 80, unknownNames: [] as string[], recentOwn: [] as string[] }
@@ -151,5 +151,17 @@ describe('echo and grammar (from the 3-day real-model run)', () => {
   it('treats a mid-message casual question as casual', () => {
     expect(isCasual('아, 그럼 주원 씨랑 뛸까? 음악 들으며 뛰는 게 좀 다르긴 하네요.')).toBe(true)
     expect(isCasual('같이 가 볼까요? 재밌을 것 같아요.')).toBe(false)
+  })
+})
+
+describe('second real-model run', () => {
+  it('accepts mailbox questions missing only the question mark', () => {
+    expect(asQuestion('보드게임 중에 제일 좋아하시는 게 뭐예요?')).toBe('보드게임 중에 제일 좋아하시는 게 뭐예요?')
+    expect(asQuestion('주말에는 보통 뭐 하시나요.')).toBe('주말에는 보통 뭐 하시나요?')
+    expect(asQuestion('어떤 음악을 좋아하시는지 궁금해요')).toBe('어떤 음악을 좋아하시는지 궁금해요')
+    expect(asQuestion('음악과 함께 하는 건 정말 감동적인 일 같아요.')).toBeNull()
+  })
+  it('catches 나랑 as casual', () => {
+    expect(hasCasualWord('나랑 취미가 비슷한 사람들도 많아요')).toBe(true)
   })
 })

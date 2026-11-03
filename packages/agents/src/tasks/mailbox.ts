@@ -61,13 +61,25 @@ export const mailboxQuestionTask: TaskSpec<MailboxQuestionInput, { target: strin
     const normalized = normalizeUtterance(raw.text, self.name)
     const text = fitLength(normalized, max) ?? normalized
     // 실측: 질문 대신 감상만 쓴 경우가 있었다("음악과 함께 하는 건 정말 감동적인 일 같아요.").
-    if (!text.includes('?')) return { issues: ['not_question'] }
+    // 물음표만 빠진 의문문("~하시나요.")이 더 흔해서, 의문형 어미면 물음표를 붙여 받는다.
+    const question = asQuestion(text)
+    if (!question) return { issues: ['not_question'] }
     const issues = checkDialogue(
       { text, speakerName: self.name, maxChars: max, unknownNames: view.unknownNames(), recentOwn: [], mustBePolite: view.speechLevel(targetId) === 'polite', knownNames: namesKnownTo(view, i.askerId) },
       ctx.config.validation,
     )
-    return issues.length > 0 ? { issues } : { value: { targetId, text } }
+    return issues.length > 0 ? { issues } : { value: { targetId, text: question } }
   },
+}
+
+const QUESTION_ENDING = /(나요|까요|가요|세요|니까|는지요|은지요|던가요|궁금해요|궁금합니다|궁금하네요|싶어요)[.!~\s]*$/
+
+/** 질문이면 물음표로 끝나게 다듬어 돌려주고, 질문이 아니면 null. */
+export function asQuestion(text: string): string | null {
+  if (text.includes('?')) return text
+  const m = QUESTION_ENDING.exec(text)
+  if (!m) return null
+  return /궁금|싶어요/.test(m[1] ?? '') ? text : `${text.replace(/[.!~\s]+$/, '')}?`
 }
 
 export interface MailboxAnswerInput {

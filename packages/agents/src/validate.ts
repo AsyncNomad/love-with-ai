@@ -140,7 +140,7 @@ export function isCasual(text: string): boolean {
 const EDGE = String.raw`(?:^|[\s,.!?~])`
 const END = String.raw`(?=$|[\s,.!?~])`
 /** 어미가 존댓말이어도 반말인 낱말(실측: "안녕, 저는 ~예요", "야, ~", "내 손톱이"). */
-const CASUAL_WORD = new RegExp(`${EDGE}(?:안녕|야|나는|난|내가|나도|내|너는|넌|네가|너도|니가|너랑)${END}`)
+const CASUAL_WORD = new RegExp(`${EDGE}(?:안녕|야|나는|난|내가|나도|나랑|나한테|나를|내|너는|넌|네가|너도|니가|너랑|너한테|너를)${END}`)
 
 /** 반말 낱말이나 반말 호칭("수아야", "우진아")이 있는가. */
 export function hasCasualWord(text: string, knownNames: readonly string[] = []): boolean {

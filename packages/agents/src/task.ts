@@ -25,6 +25,8 @@ export interface TaskSpec<I, Raw, R> {
   ownerOf(input: I): ParticipantId | null
   sampling(ctx: TaskContext, input: I): SamplingConfig
   maxTokens(ctx: TaskContext, input: I): number
+  /** 생성 시도 횟수. 없으면 config.llm.retries + 1. 결과가 오래 쓰이는 작업(인격)은 더 시도한다. */
+  attempts?(ctx: TaskContext): number
   schema(input: I, ctx: TaskContext): z.ZodType<Raw>
   build(input: I, ctx: TaskContext): BuiltPrompt
   finish(raw: Raw, input: I, ctx: TaskContext, built: BuiltPrompt): Finish<R>
@@ -81,7 +83,8 @@ export class AgentRunner {
   constructor(private readonly deps: AgentRunnerDeps) {}
 
   async run<I, Raw, R>(spec: TaskSpec<I, Raw, R>, input: I, signal?: AbortSignal): Promise<TaskResult<R>> {
-    const attempts = this.deps.context().config.llm.retries + 1
+    const base = this.deps.context()
+    const attempts = spec.attempts?.(base) ?? base.config.llm.retries + 1
     let lastIssues: string[] = []
     for (let attempt = 0; attempt < attempts; attempt++) {
       if (signal?.aborted) return { ok: false, issues: ['aborted'], aborted: true }
