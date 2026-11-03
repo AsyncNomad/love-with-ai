@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import type { ParticipantId, RoomId } from '@heart/shared'
 import { ObservationView } from '../observation'
-import { COMMON_RULES, conversationSection, joinSections, memorySection, peopleSection, personaSection, situationSection } from '../prompts'
+import { COMMON_RULES, conversationSection, joinSections, memorySection, peopleSection, personaSection, sharedHistorySection, situationSection } from '../prompts'
 import type { TaskSpec } from '../task'
 import { checkDialogue, dropEchoedSentences, fitLength, fixAddress, limitLaughter, normalizeUtterance } from '../validate'
 
@@ -56,6 +56,14 @@ export const dialogueTask: TaskSpec<DialogueInput, { action: 'speak' | 'silent';
       : i.mode === 'start_topic'
         ? '\n아직 서로 잘 모르는 사이라 존댓말을 쓴다. 오는 길, 숙소 첫인상, 방금 들은 자기소개처럼 처음 만난 자리에 어울리는 얘기를 한다.'
         : '\n아직 서로 잘 모르는 사이라 존댓말을 쓴다.'
+    // 같은 취미 이야기로 맴도는 것을 막는다(실측: 3일 내내 러닝·와인). 새 화제를 꺼낼 때는 피하고, 대답할 때는 되풀이하지 않는다.
+    const worn = view.wornTopics(ctx.config.pools.interests.map((x) => x.split(' ')[0] ?? x))
+    const topicHint =
+      worn.length === 0
+        ? ''
+        : i.mode === 'start_topic' || i.mode === 'open_private'
+          ? `\n이미 여러 번 나온 화제(${worn.join(', ')})는 꺼내지 않는다. 오늘 일정에 대한 소감, 하는 일, 연애에서 중요하게 여기는 것, 여기 와서 느낀 점처럼 다른 이야기를 한다.`
+          : `\n${worn.join(', ')} 이야기는 이미 많이 했다. 상대가 먼저 꺼내지 않으면 다시 꺼내지 않는다.`
     const system = joinSections(
       COMMON_RULES,
       personaSection(view),
@@ -64,9 +72,10 @@ export const dialogueTask: TaskSpec<DialogueInput, { action: 'speak' | 'silent';
     const user = joinSections(
       situationSection(view, i.roomId),
       peopleSection(view, ctx, others),
+      sharedHistorySection(view),
       memorySection(view, ctx, others),
       conversationSection(view, ctx, i.roomId),
-      `[지금 할 일]\n${INSTRUCTIONS[i.mode]}${meetingHint}`,
+      `[지금 할 일]\n${INSTRUCTIONS[i.mode]}${meetingHint}${topicHint}`,
     )
     const self = view.self().cast
     return { system, user, view, meta: { mode: i.mode, speakerName: self.name, roomId: i.roomId } }

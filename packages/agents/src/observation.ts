@@ -1,4 +1,5 @@
-import type { AnyEvent, GameConfig, ParticipantId, RoomId, SpeechLevel } from '@heart/shared'
+import type { AnyEvent, GameConfig, ParticipantId, RoomId, SpeechLevel, StageId } from '@heart/shared'
+import { STAGE_META } from '@heart/shared'
 import {
   canObserve,
   currentMembers,
@@ -107,6 +108,76 @@ export class ObservationView {
   }
 
   /**
+   * 함께 겪은 일(사실). 이 참가자가 들어갔던 거실 밖의 방(1:1, 그룹 대화, 브런치, 활동, 데이트)을 시간 순으로 돌려준다.
+   * LLM이 만든 기억이 아니라 방 멤버십에서 서버가 만든다(D7). 실측에서 "첫날 아침 제 요리를 다 드셨던 기억"처럼
+   * 없는 추억을 지어내는 일이 잦아서, 실제로 함께 한 일을 명시해 그 밖의 것은 없다고 알려 준다(design.md D37).
+   * 예산을 넘으면 오래된 것부터 뺀다. 근거는 본인의 입장(MEMBER_JOINED) 이벤트다.
+   */
+  sharedHistory(charBudget: number): { seq: number; line: string }[] {
+    const stages = this.state.events.filter((e): e is AnyEvent & { type: 'STAGE_STARTED' } => e.type === 'STAGE_STARTED')
+    const items: { seq: number; line: string }[] = []
+    for (const room of this.state.rooms.values()) {
+      if (room.kind === 'living') continue
+      const mine = room.memberships.find((m) => m.participantId === this.ownerId)
+      if (!mine) continue
+      const stage = stages.filter((s) => s.seq < room.openedSeq).at(-1)
+      const when = stage ? stageLabel(stage.payload.stage) : ''
+      const others = [...new Set(room.memberships.map((m) => m.participantId))].filter((id) => id !== this.ownerId)
+      const names = others.map((id) => this.label(id)).join(', ')
+      const who = `${names}${withParticle(names)} ${others.length === 1 ? '단둘이' : '함께'}`
+      items.push({ seq: mine.joinedSeq, line: `${when} · ${room.location} · ${who}` })
+    }
+    items.sort((a, b) => a.seq - b.seq)
+    const out: { seq: number; line: string }[] = []
+    let used = 0
+    for (let i = items.length - 1; i >= 0; i--) {
+      const item = items[i] as { seq: number; line: string }
+      if (used + item.line.length > charBudget) break
+      used += item.line.length
+      this.touched.add(item.seq)
+      out.unshift(item)
+    }
+    return out
+  }
+
+  /** 이 참가자가 하우스에 들어온 뒤의 일정(공개 정보). "어제 밤"이 무엇이었는지 같은 시간 감각의 근거다. */
+  scheduleSoFar(): string {
+    const entered = this.state.participants.get(this.ownerId)?.enteredSeq ?? Number.POSITIVE_INFINITY
+    const byDay = new Map<number, string[]>()
+    for (const e of this.state.events) {
+      if (e.type !== 'STAGE_STARTED' || e.payload.stage === 'CASTING') continue
+      const meta = STAGE_META[e.payload.stage]
+      if (e.seq < entered && meta.day >= 1) {
+        // 들어오기 전의 일정은 이름만 안다(메기). 하루 단위로만 남긴다.
+        if (!byDay.has(meta.day)) byDay.set(meta.day, ['(입주 전)'])
+        continue
+      }
+      const list = byDay.get(meta.day) ?? []
+      if (list[0] === '(입주 전)') list.length = 0
+      if (list.at(-1) !== meta.label) list.push(meta.label)
+      byDay.set(meta.day, list)
+    }
+    return [...byDay].map(([day, labels]) => `${day}일차: ${labels.join(' · ')}`).join('\n')
+  }
+
+  /**
+   * 최근 관찰한 대화(어느 방이든)에서 자주 나온 화제 낱말. 대화가 같은 취미 이야기로 맴도는 것을 막는 데 쓴다(실측: 러닝·와인).
+   * 사실 판단이 아니라 화제 조절용이라 근거 seq로 남기지 않는다.
+   */
+  wornTopics(keywords: readonly string[], window = 40, min = 3): string[] {
+    const recent = this.observed()
+      .filter((e): e is AnyEvent & { type: 'MESSAGE_SENT' } => e.type === 'MESSAGE_SENT')
+      .slice(-window)
+      .map((e) => e.payload.text)
+    return keywords
+      .map((k) => ({ k, n: recent.filter((t) => t.includes(k)).length }))
+      .filter((x) => x.n >= min)
+      .sort((a, b) => b.n - a.n)
+      .slice(0, 3)
+      .map((x) => x.k)
+  }
+
+  /**
    * 본인만 아는 일: 받은 익명 카드, 내가 보낸 카드, 우체통 질문과 답(game-rules.md §5.5, §6.1).
    * 보낸 사람을 모르는 카드는 보낸 사람을 쓰지 않는다. 이벤트에도 그 값이 없다.
    */
@@ -211,4 +282,16 @@ export class ObservationView {
     const mine = this.observed().filter((e) => e.type === 'MESSAGE_SENT' && e.actor === this.ownerId)
     return mine.slice(-limit).map((e) => (e as AnyEvent & { type: 'MESSAGE_SENT' }).payload.text)
   }
+}
+
+/** 받침에 맞는 '와/과'. 한글이 아니면 둘 다 적는다. */
+function withParticle(word: string): string {
+  const code = word.charCodeAt(word.length - 1) - 0xac00
+  if (code < 0 || code > 11171) return '와(과)'
+  return code % 28 === 0 ? '와' : '과'
+}
+
+function stageLabel(stage: StageId): string {
+  const meta = STAGE_META[stage]
+  return `${meta.day}일차 ${meta.label}`
 }

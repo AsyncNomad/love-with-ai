@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import type { ParticipantId } from '@heart/shared'
 import { ObservationView } from '../observation'
-import { COMMON_RULES, joinSections, memorySection, personaSection, privateSignalsSection } from '../prompts'
+import { COMMON_RULES, joinSections, memorySection, personaSection, privateSignalsSection, sharedHistorySection } from '../prompts'
 import type { TaskSpec } from '../task'
 import { checkDialogue, fitLength, limitLaughter, normalizeUtterance } from '../validate'
 import { candidateLines } from './decisions'
@@ -49,6 +49,7 @@ export const mailboxQuestionTask: TaskSpec<MailboxQuestionInput, { target: strin
     const user = joinSections(
       `[시그널 우체통]\n마지막 날 아침이다. 더 알고 싶은 이성 한 명에게 질문 하나를 보낸다. 질문과 답은 둘만 본다.\n지금까지 나눈 대화를 바탕으로 정말 궁금한 것을 묻는다. 궁금한 사람이 없으면 "${NONE}"을 고른다.`,
       `[후보]\n${lines}`,
+      sharedHistorySection(view),
       privateSignalsSection(view),
     )
     return { system, user, view, meta: { speakerName: view.self().cast.name } }
@@ -102,6 +103,7 @@ export const mailboxAnswerTask: TaskSpec<MailboxAnswerInput, { text: string }, s
     const asker = view.label(i.askerId)
     const system = joinSections(COMMON_RULES, personaSection(view), `[출력 규칙]\nJSON으로만 답한다: {"text":"답"}. ${max}자 이내, 한두 문장.`)
     const user = joinSections(
+      sharedHistorySection(view),
       memorySection(view, ctx, [i.askerId]),
       `[시그널 우체통]\n${asker}이(가) 우체통으로 질문을 보냈다. 둘만 보는 답장이다. 네 성격대로 솔직하게 답한다.`,
       `<질문>\n${i.question}\n</질문>`,

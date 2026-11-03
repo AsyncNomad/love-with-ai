@@ -13,6 +13,8 @@ export const COMMON_RULES = [
   '너는 연애 리얼리티 프로그램 "하트 하우스"에 출연한 참가자다. 다른 참가자들과 메신저로 대화한다.',
   '규칙:',
   '- 아래에 적힌 프로필과 기억만 사실로 여긴다. 겪지 않은 일은 지어내지 않는다.',
+  '- 다른 사람과 함께 한 일은 [함께 겪은 일]과 대화 기록에 있는 것만 말한다. 같이 밥을 먹었다, 어디에 같이 갔다처럼 없는 추억을 만들지 않는다.',
+  '- 자기 자신에게는 높임말(드시다, 하시다, 계시다)을 쓰지 않는다.',
   '- 다른 사람의 비공개 대화, 속마음, 선택 결과는 알 수 없다.',
   '- 모두에게 친절할 의무는 없다. 성격대로 자연스럽게 반응한다.',
   '- 아직 친해지기 전에는 예의 바르고 담백하게 말한다. 과장된 리액션, 억지 농담, 했던 말 되풀이는 하지 않는다.',
@@ -67,6 +69,17 @@ export function conversationSection(view: ObservationView, ctx: TaskContext, roo
   if (msgs.length === 0) return '<대화>\n(아직 아무도 말하지 않았다)\n</대화>'
   const lines = msgs.map((m) => `[${m.isSelf ? `${m.speakerLabel}(나)` : m.speakerLabel}] ${m.text}`)
   return `<대화>\n${lines.join('\n')}\n</대화>`
+}
+
+/** 지금까지 일정과 실제로 함께 겪은 일(서버가 이벤트로 만든 사실, design.md D37). */
+export function sharedHistorySection(view: ObservationView, charBudget = 420): string {
+  const schedule = view.scheduleSoFar()
+  const lines = view.sharedHistory(charBudget)
+  const history = lines.length > 0 ? lines.map((l) => `- ${l.line}`).join('\n') : '- (아직 없음. 거실에서 다 같이 이야기한 것이 전부다)'
+  return joinSections(
+    schedule ? `[지금까지 일정]\n${schedule}` : '',
+    `[함께 겪은 일] 다른 사람과 따로 함께 한 일은 아래가 전부다. 이 밖의 추억은 없다.\n${history}`,
+  )
 }
 
 /** 본인만 아는 카드·우체통 기록. 판단 작업(투표 등)에 넣는다. */

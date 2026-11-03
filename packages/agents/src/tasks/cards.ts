@@ -2,7 +2,7 @@ import { z } from 'zod'
 import type { ParticipantId } from '@heart/shared'
 import { containsName } from '@heart/engine'
 import { ObservationView } from '../observation'
-import { COMMON_RULES, joinSections, personaSection, privateSignalsSection } from '../prompts'
+import { COMMON_RULES, joinSections, personaSection, privateSignalsSection, sharedHistorySection } from '../prompts'
 import type { TaskSpec } from '../task'
 import { checkDialogue, fitLength, limitLaughter, normalizeUtterance } from '../validate'
 import { candidateLines } from './decisions'
@@ -46,6 +46,7 @@ export const signalCardTask: TaskSpec<SignalCardInput, { target: string; text: s
     const user = joinSections(
       `[익명 시그널 카드]\n마음이 가는 이성 한 명에게 이름을 밝히지 않는 짧은 카드를 보낸다. 받는 사람은 누가 보냈는지 모른다.\n카드 내용은 받는 사람에게 직접 건네는 말로, 함께 나눈 구체적인 순간이나 그 사람의 좋았던 점을 한두 문장으로 쓴다. 카드나 익명이라는 사실 자체는 이야기하지 않는다.\n네 이름은 절대 쓰지 않는다. 마음이 가는 사람이 없으면 "${NONE}"을 고른다.`,
       `[후보]\n${lines}`,
+      sharedHistorySection(view),
       privateSignalsSection(view),
     )
     return { system, user, view, meta: { speakerName: view.self().cast.name } }

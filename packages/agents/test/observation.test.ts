@@ -54,6 +54,25 @@ describe('ObservationView isolation', () => {
     for (const seq of built.view?.touched ?? []) expect(canObserve(s, 'c', s.events[seq - 1]!)).toBe(true)
   })
 
+  it('lists only the rooms the owner actually shared, with the people in them (D37)', () => {
+    const s = setup()
+    push(s, { type: 'STAGE_STARTED', payload: { stage: 'D1_NIGHT_TALKS', simTime: 'D1 23:00' }, visibility: { kind: 'house' } })
+    push(s, { type: 'ROOM_OPENED', payload: { roomId: 'terrace', kind: 'private', location: '테라스' }, visibility: { kind: 'server' } })
+    for (const id of ['a', 'b']) push(s, { type: 'MEMBER_JOINED', payload: { roomId: 'terrace', participantId: id }, visibility: { kind: 'room' } })
+    const a = new ObservationView(s, 'a', defaultConfig)
+    expect(a.sharedHistory(1_000).map((l) => l.line)).toEqual(['1일차 심야 대화 · 테라스 · 박도현과 단둘이'])
+    for (const seq of a.touched) expect(canObserve(s, 'a', s.events[seq - 1]!)).toBe(true)
+    expect(new ObservationView(s, 'c', defaultConfig).sharedHistory(1_000)).toEqual([])
+    expect(a.scheduleSoFar()).toBe('1일차: 심야 대화')
+  })
+
+  it('reports topics that keep coming up', () => {
+    const s = setup()
+    for (const id of ['a', 'b']) push(s, { type: 'MEMBER_JOINED', payload: { roomId: 'living', participantId: id }, visibility: { kind: 'room' } })
+    for (const text of ['러닝 좋아해요', '저도 러닝해요', '주말에 러닝 같이 해요', '와인도 좋아요']) push(s, { type: 'MESSAGE_SENT', actor: 'b', payload: { roomId: 'living', text, background: false }, visibility: { kind: 'room' } })
+    expect(new ObservationView(s, 'a', defaultConfig).wornTopics(['러닝', '와인'])).toEqual(['러닝'])
+  })
+
   it('every event a view touches is observable by its owner (random scenarios)', () => {
     const op = fc.oneof(
       fc.record({ kind: fc.constant('join' as const), who: fc.constantFrom('a', 'b', 'c', 'd'), room: fc.constantFrom('living', 'yard') }),
@@ -75,6 +94,7 @@ describe('ObservationView isolation', () => {
           view.roomMessages('living', 50, 10_000)
           view.roomMessages('yard', 50, 10_000)
           view.observedSince(0, 10_000)
+          view.sharedHistory(10_000)
           for (const seq of view.touched) expect(canObserve(s, owner, s.events[seq - 1]!)).toBe(true)
         }
       }),

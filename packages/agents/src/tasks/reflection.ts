@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import type { ParticipantId, RelationshipAxis } from '@heart/shared'
 import { ObservationView } from '../observation'
-import { COMMON_RULES, joinSections, personaSection } from '../prompts'
+import { COMMON_RULES, joinSections, personaSection, sharedHistorySection } from '../prompts'
 import type { TaskSpec } from '../task'
 import { hasForeignScript } from '../validate'
 
@@ -106,7 +106,11 @@ export const memorySummaryTask: TaskSpec<MemorySummaryInput, { summary: string }
       personaSection(view),
       '[출력 규칙]\nJSON으로만 답한다: {"summary":"..."}. 1인칭 일기처럼 300자 이내. 실제로 보고 들은 것만 쓰고, 추측은 "~인 것 같다"로 쓴다.',
     )
-    const user = `[${i.label}: 내가 보고 들은 것]\n<대화>\n${lines.length > 0 ? lines.join('\n') : '(기록 없음)'}\n</대화>\n\n중요한 일과 사람들에 대한 인상을 요약해라.`
+    // 요약은 다음 날의 기억이 된다. 지어낸 추억이 기억으로 굳지 않도록 실제로 함께 한 일을 함께 준다(D37).
+    const user = joinSections(
+      sharedHistorySection(view),
+      `[${i.label}: 내가 보고 들은 것]\n<대화>\n${lines.length > 0 ? lines.join('\n') : '(기록 없음)'}\n</대화>\n\n중요한 일과 사람들에 대한 인상을 요약해라.`,
+    )
     return { system, user, view, meta: { ownerName: view.self().cast.name } }
   },
   finish: (raw) => {
