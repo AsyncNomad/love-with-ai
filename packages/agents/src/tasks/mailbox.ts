@@ -3,7 +3,7 @@ import type { ParticipantId } from '@heart/shared'
 import { ObservationView } from '../observation'
 import { COMMON_RULES, joinSections, memorySection, personaSection, privateSignalsSection, sharedHistorySection } from '../prompts'
 import type { TaskSpec } from '../task'
-import { checkDialogue, fitLength, limitLaughter, normalizeUtterance } from '../validate'
+import { checkDialogue, dropEchoedSentences, fitLength, limitLaughter, normalizeUtterance } from '../validate'
 import { candidateLines } from './decisions'
 
 /**
@@ -61,8 +61,11 @@ export const mailboxQuestionTask: TaskSpec<MailboxQuestionInput, { target: strin
     if (!targetId) return { issues: ['bad_choice'] }
     const self = view.self().cast
     const max = ctx.config.validation.maxChars.mailbox
-    const normalized = limitLaughter(normalizeUtterance(raw.question, self.name), self.speech.laughter)
-    const text = fitLength(normalized, max) ?? normalized
+    // 자기가 보낸 카드 문장이나 이미 받은 질문을 그대로 옮기는 경우가 있었다(실측). 본인만 아는 카드·우체통 문장과 겹치는 문장은 지운다.
+    const seen = view.privateSignals(2000).map((l) => l.line.replace(/^[^"]*"|"$/g, ''))
+    const deduped = dropEchoedSentences(limitLaughter(normalizeUtterance(raw.question, self.name), self.speech.laughter), seen)
+    if (deduped.length === 0) return { issues: ['repetition'] }
+    const text = fitLength(deduped, max) ?? deduped
     // 실측: 질문 대신 감상만 쓴 경우가 있었다("음악과 함께 하는 건 정말 감동적인 일 같아요.").
     // 물음표만 빠진 의문문("~하시나요.")이 더 흔해서, 의문형 어미면 물음표를 붙여 받는다.
     const question = asQuestion(text)

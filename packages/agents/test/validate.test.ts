@@ -139,7 +139,8 @@ describe('natural Korean address and speech level (from real-model play)', () =>
 
 describe('echo and grammar (from the 3-day real-model run)', () => {
   it('drops sentences copied from anyone in the room and keeps new ones', () => {
-    expect(dropEchoedSentences('저도요! 제가 주말에 러닝도 해요. 😄', ['저도요! 같이 뛸 사람 찾고 계시나요? 제가 주말에 러닝도 해요. 😄'])).toBe('저도요!')
+    // 베낀 문장을 지우면 "저도요!"만 남는다. 조각만 남으면 통째로 반복이다(다시 생성).
+    expect(dropEchoedSentences('저도요! 제가 주말에 러닝도 해요. 😄', ['저도요! 같이 뛸 사람 찾고 계시나요? 제가 주말에 러닝도 해요. 😄'])).toBe('')
     expect(dropEchoedSentences('영화는 어떤 장르를 주로 보시나요? 지수 씨랑 함께 뛰는 게 정말 좋겠네요.', ['저도 주말엔 가끔 러닝을 하거든요. 지수 씨랑 함께 뛰는 게 정말 좋겠네요.'])).toBe('영화는 어떤 장르를 주로 보시나요?')
     expect(dropEchoedSentences('그건 처음 들어 보네요.', ['저는 주말에 한강에서 자주 뛰어요'])).toBe('그건 처음 들어 보네요.')
     expect(dropEchoedSentences('그럼 반말로 지내보는 건 어떨까요.', ['그럼 반말로 지내보는 건 어떨까요.'])).toBe('')
@@ -170,5 +171,12 @@ describe('third real-model run', () => {
   it('fixes 제가랑 and flags a mid-message casual 니?', () => {
     expect(normalizeUtterance('그럼요, 제가랑은 좀 다르죠.', '정하린')).toBe('그럼요, 저랑은 좀 다르죠.')
     expect(isCasual('음식이라니? 저는 디저트를 좋아해요.')).toBe(true)
+  })
+})
+
+describe('fifth real-model run', () => {
+  it('does not leave a meaningless fragment after dropping echoes', () => {
+    expect(dropEchoedSentences('그리고요. 차 한 잔 마시며 대화할 수 있으면 좋겠어요.', ['차 한 잔 마시며 대화할 수 있으면 좋겠어요.'])).toBe('')
+    expect(dropEchoedSentences('네! 저도요.', ['저는 영화 보는 거 좋아해요'])).toBe('네! 저도요.')
   })
 })

@@ -64,6 +64,10 @@ export const dialogueTask: TaskSpec<DialogueInput, { action: 'speak' | 'silent';
         : i.mode === 'start_topic' || i.mode === 'open_private'
           ? `\n이미 여러 번 나온 화제(${worn.join(', ')})는 꺼내지 않는다. 오늘 일정에 대한 소감, 하는 일, 연애에서 중요하게 여기는 것, 여기 와서 느낀 점처럼 다른 이야기를 한다.`
           : `\n${worn.join(', ')} 이야기는 이미 많이 했다. 상대가 먼저 꺼내지 않으면 다시 꺼내지 않는다.`
+    // 장소 이름을 메시지마다 되풀이하는 경우가 많았다(실측: 데이트 내내 "바닷가 카페에서"). 이미 두 번 말했으면 그만 말하게 한다.
+    const place = view.roomLocation(i.roomId)
+    const placeHint =
+      i.roomId !== 'living' && view.ownRecentMessages(6).filter((t) => t.includes(place)).length >= 2 ? `\n${place} 이야기는 이미 했다. 장소 이야기를 또 꺼내지 않는다.` : ''
     const system = joinSections(
       COMMON_RULES,
       personaSection(view),
@@ -75,7 +79,7 @@ export const dialogueTask: TaskSpec<DialogueInput, { action: 'speak' | 'silent';
       sharedHistorySection(view),
       memorySection(view, ctx, others),
       conversationSection(view, ctx, i.roomId),
-      `[지금 할 일]\n${INSTRUCTIONS[i.mode]}${meetingHint}${topicHint}`,
+      `[지금 할 일]\n${INSTRUCTIONS[i.mode]}${meetingHint}${topicHint}${placeHint}`,
     )
     const self = view.self().cast
     return { system, user, view, meta: { mode: i.mode, speakerName: self.name, roomId: i.roomId } }

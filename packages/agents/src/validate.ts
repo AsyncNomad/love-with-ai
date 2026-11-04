@@ -64,7 +64,10 @@ export function sentencesOf(text: string): string[] {
 export function dropEchoedSentences(text: string, recent: readonly string[], threshold = 0.6): string {
   const seen = recent.flatMap(sentencesOf).filter((s) => s.replace(/\s/g, '').length >= 8)
   if (seen.length === 0) return text
-  const kept = sentencesOf(text).filter((s) => s.replace(/\s/g, '').length < 8 || !seen.some((r) => isRepeat(r, s, threshold) || similarity(r, s) >= threshold))
+  const all = sentencesOf(text)
+  const kept = all.filter((s) => s.replace(/\s/g, '').length < 8 || !seen.some((r) => isRepeat(r, s, threshold) || similarity(r, s) >= threshold))
+  // 지우고 나서 "그리고요." 같은 짧은 조각만 남으면 말이 안 된다(실측). 통째로 반복으로 본다.
+  if (kept.length < all.length && kept.join('').replace(/\s/g, '').length < 8) return ''
   return kept.join(' ')
 }
 
