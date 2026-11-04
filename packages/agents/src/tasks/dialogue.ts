@@ -3,7 +3,7 @@ import type { ParticipantId, RoomId } from '@heart/shared'
 import { ObservationView } from '../observation'
 import { COMMON_RULES, conversationSection, joinSections, memorySection, peopleSection, personaSection, sharedHistorySection, situationSection } from '../prompts'
 import type { TaskSpec } from '../task'
-import { checkDialogue, dropDayOverSentences, dropEchoedSentences, fitLength, fixAddress, hasEmoji, limitLaughter, normalizeUtterance, stripEmoji } from '../validate'
+import { checkDialogue, dropDayOverSentences, dropEchoedSentences, dropMirroredSentences, fitLength, fixAddress, hasEmoji, hasSelfHonorific, limitLaughter, normalizeUtterance, stripEmoji } from '../validate'
 
 export type DialogueMode = 'reply' | 'start_topic' | 'greeting' | 'newcomer_greeting' | 'open_private' | 'wrap_up' | 'follow_up'
 
@@ -57,6 +57,7 @@ export const dialogueTask: TaskSpec<DialogueInput, { action: 'speak' | 'silent';
     if (issues.includes('too_long')) hints.push('방금 쓴 말이 너무 길다. 한 문장으로 짧게 쓴다.')
     if (issues.includes('foreign_script')) hints.push('한국어로만 쓴다.')
     if (issues.includes('self_third_person')) hints.push('기억을 읽어 주듯 해설하지 말고, 네가 직접 상대에게 하는 말로 쓴다. 자기 이름을 3인칭으로 쓰지 않는다.')
+    if (issues.includes('self_honorific')) hints.push('자기 자신에게는 높임말(드시다, 하시다)을 쓰지 않는다. "저도 차를 마셔요"처럼 쓴다.')
     if (issues.includes('time_mismatch')) hints.push('지금은 하루가 끝나지 않았다. 하루를 다 보낸 것처럼 묻거나 말하지 않는다.')
     return hints.length > 0 ? hints.join(' ') : null
   },
@@ -127,7 +128,8 @@ export const dialogueTask: TaskSpec<DialogueInput, { action: 'speak' | 'silent';
     if (laughed.length === 0) return { value: { text: null } }
     // 이 방의 최근 문장(누가 했든)을 되풀이한 문장은 지운다. 다 지워지면 반복으로 거부하고 다시 만든다.
     const recentRoom = view.roomMessages(i.roomId, 10, 2000).filter((m) => m.speakerId !== 'pd').map((m) => m.text)
-    const deduped = dropEchoedSentences(laughed, recentRoom)
+    const othersRecent = view.roomMessages(i.roomId, 3, 600).filter((m) => m.speakerId !== 'pd' && !m.isSelf).map((m) => m.text)
+    const deduped = dropMirroredSentences(dropEchoedSentences(laughed, recentRoom), othersRecent)
     if (deduped.length === 0) return { issues: ['repetition'] }
     const timed = dropDayOverSentences(deduped, hourOf(ctx.state.simTime))
     if (timed.length === 0) return { issues: ['time_mismatch'] }
@@ -152,6 +154,7 @@ export const dialogueTask: TaskSpec<DialogueInput, { action: 'speak' | 'silent';
     // 실측: 기억 요약 문장을 대사로 옮겨 "송건우 씨는 …, 김하린과 여행 이야기를 나누며 …"처럼 자기를 3인칭으로 해설했다.
     // 인사·자기소개가 아닌데 자기 전체 이름이 나오면 해설로 보고 다시 쓰게 한다.
     // "저 김하린입니다"(자기소개)는 괜찮고, "김하린과 …", "김하린은 …"처럼 3인칭 조사가 붙으면 해설이다.
+    if (hasSelfHonorific(fitted)) issues.push('self_honorific')
     if (speakerName.length > 0 && new RegExp(`${speakerName}(과|와|은|는|이가|의|을|를|에게|한테|씨)`).test(fitted)) issues.push('self_third_person')
     return issues.length > 0 ? { issues } : { value: { text: fitted } }
   },

@@ -15,6 +15,7 @@ export type IssueCode =
   | 'foreign_script'
   | 'speech_level'
   | 'self_third_person'
+  | 'self_honorific'
 
 export interface DialogueCheckInput {
   text: string
@@ -264,4 +265,35 @@ export function hasEmoji(text: string): boolean {
 /** 이모티콘을 지운다. 직전 메시지에 이모티콘을 썼으면 이번에는 쓰지 않게 하는 데 쓴다(실측: 모든 메시지에 😊). */
 export function stripEmoji(text: string): string {
   return text.replace(EMOJI, '').replace(/\s{2,}/g, ' ').trim()
+}
+
+/**
+ * 남이 방금 한 말을 자기 이야기처럼 가져가는 문장(실측: 사람이 "계획은 숙소 정도만 잡아요" → AI "저도 계획은 숙소 정도만 잡는 편이라서",
+ * "제가 숙소 정도만 잡는 편이라서"). "저도·제가·저는"으로 시작하고 남의 최근 말과 3-gram이 절반 넘게, 또는 6개 이상 겹치면 지운다.
+ */
+export function dropMirroredSentences(text: string, othersRecent: readonly string[]): string {
+  const theirs = othersRecent.map(grams).filter((g) => g.size >= 6)
+  if (theirs.length === 0) return text
+  const all = sentencesOf(text)
+  const kept = all.filter((s) => {
+    const m = /^\s*(저도|제가|저는|저 역시)\s*/.exec(s)
+    if (!m) return true
+    const mine = grams(s.slice(m[0].length))
+    if (mine.size < 6) return true
+    return !theirs.some((g) => {
+      let inter = 0
+      for (const x of mine) if (g.has(x)) inter++
+      // 비율만 보면 덧붙인 절 때문에 빠져나간다. 8글자 넘는 같은 구절(3-gram 6개)이 있으면 가져온 것으로 본다.
+      return inter >= 6 || inter / Math.min(mine.size, g.size) >= 0.5
+    })
+  })
+  if (kept.length < all.length && kept.join('').replace(/\s/g, '').length < 8) return ''
+  return kept.join(' ')
+}
+
+/** 자기 자신에게 높임말을 쓴 문장(실측: "저도 요즘은 커피보다 차를 더 많이 드시네요"). */
+const SELF_HONORIFIC = /(저는|저도|제가|저 역시)[^.?!]{0,24}(드시|하시|계시|주무시|가시|오시|보시|좋아하시)(네요|어요|고 있|죠|는데요|면서)/
+
+export function hasSelfHonorific(text: string): boolean {
+  return sentencesOf(text).some((s) => SELF_HONORIFIC.test(s) && !/씨|님/.test(s))
 }

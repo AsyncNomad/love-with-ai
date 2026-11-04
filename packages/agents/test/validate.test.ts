@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { defaultConfig } from '@heart/config'
-import { asQuestion, checkDialogue, dropDayOverSentences, dropEchoedSentences, hasEmoji, stripEmoji, fitLength, fixAddress, hasCasualWord, hasEnglishWord, hasForeignScript, isCasual, isPolite, isRepeat, limitLaughter, normalizeUtterance, similarity } from '../src'
+import { asQuestion, checkDialogue, dropDayOverSentences, dropEchoedSentences, dropMirroredSentences, hasSelfHonorific, hasEmoji, stripEmoji, fitLength, fixAddress, hasCasualWord, hasEnglishWord, hasForeignScript, isCasual, isPolite, isRepeat, limitLaughter, normalizeUtterance, similarity } from '../src'
 
 const cfg = defaultConfig.validation
 const base = { speakerName: '정하린', maxChars: 80, unknownNames: [] as string[], recentOwn: [] as string[] }
@@ -197,5 +197,18 @@ describe('seventh real-model run', () => {
     expect(hasEmoji('좋네요 😊')).toBe(true)
     expect(stripEmoji('좋네요 😊 정말요')).toBe('좋네요 정말요')
     expect(hasEmoji('좋네요')).toBe(false)
+  })
+})
+
+describe('ninth real-model run', () => {
+  it('drops a sentence that takes over what someone just said', () => {
+    const human = ['즉흥적으로 떠나는 편이에요. 계획은 숙소 정도만 잡아요']
+    expect(dropMirroredSentences('저도 계획은 숙소 정도만 잡는 편이라서, 나머지는 상황에 맡기는 편이죠. 혹시 여행지는 어디가 좋으셨어요?', human)).toBe('혹시 여행지는 어디가 좋으셨어요?')
+    expect(dropMirroredSentences('저는 계획을 꼼꼼히 세우는 편이에요.', human)).toBe('저는 계획을 꼼꼼히 세우는 편이에요.')
+  })
+  it('detects honorifics used about oneself', () => {
+    expect(hasSelfHonorific('저도 요즘은 커피보다는 차를 더 많이 드시네요.')).toBe(true)
+    expect(hasSelfHonorific('저는 지수 씨가 하시는 일이 궁금해요.')).toBe(false)
+    expect(hasSelfHonorific('저도 차를 자주 마셔요.')).toBe(false)
   })
 })
