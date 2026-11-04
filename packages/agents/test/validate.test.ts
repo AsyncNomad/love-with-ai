@@ -180,3 +180,9 @@ describe('fifth real-model run', () => {
     expect(dropEchoedSentences('네! 저도요.', ['저는 영화 보는 거 좋아해요'])).toBe('네! 저도요.')
   })
 })
+
+describe('sixth real-model run', () => {
+  it('drops a leading job-title address', () => {
+    expect(fixAddress('개발자님, 오늘 일로 지치셨나요?', ['김지수'], true)).toBe('오늘 일로 지치셨나요?')
+  })
+})

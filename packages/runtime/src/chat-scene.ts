@@ -1,4 +1,4 @@
-import type { DialogueMode } from '@heart/agents'
+import { dropEchoedSentences, type DialogueMode } from '@heart/agents'
 import type { AnyEvent, GameConfig, ParticipantId, RoomId } from '@heart/shared'
 import { findMentions, getRelationship, matchesInterest, pickSpeakers, type Rng, type SpeakerFeatures } from '@heart/engine'
 import type { AgentService } from './agent-service'
@@ -54,6 +54,8 @@ export class ChatScene {
   private readonly recent: RecentMessage[] = []
   private readonly lastSpokeAt = new Map<ParticipantId, number>()
   private utterances = 0
+  /** 이 장면에서 지금까지 나온 메시지 수(recent는 최근 30개만 들고 있다). */
+  private messageCount = 0
   private silentStreak = 0
   private idle: Countdown | null = null
   private idleToken = 0
@@ -159,6 +161,7 @@ export class ChatScene {
     if (e.type !== 'MESSAGE_SENT' || e.payload.roomId !== this.roomId) return
     const speaker = e.actor
     this.recent.push({ speakerId: speaker, text: e.payload.text })
+    this.messageCount++
     if (this.recent.length > 30) this.recent.shift()
     this.lastSpokeAt.set(speaker, this.deps.clock.now())
     this.lastMessageAt = this.deps.clock.now()
@@ -263,10 +266,16 @@ export class ChatScene {
     let spoke = false
     try {
       const started = clock.now()
-      const text = await agents.speak({ speakerId, roomId: this.roomId, mode, isPrivate: this.isPrivate }, priority, entry.controller.signal, () =>
+      const countAtStart = this.messageCount
+      const generated = await agents.speak({ speakerId, roomId: this.roomId, mode, isPrivate: this.isPrivate }, priority, entry.controller.signal, () =>
         this.setTyping(speakerId, true),
       )
-      if (text === null || this.isStale(entry, seenHumanSeq)) return
+      if (generated === null || this.isStale(entry, seenHumanSeq)) return
+      // 사람의 말에 두 명이 동시에 답하면 서로의 답을 못 본 채 같은 말을 한다(실측: 둘 다 "영화 좋아하시나요?").
+      // 생성하는 동안 이 방에 새로 올라온 말과 겹치는 문장은 지우고, 남는 게 없으면 말하지 않는다.
+      const arrived = this.recent.slice(-Math.min(this.recent.length, this.messageCount - countAtStart)).map((m) => m.text)
+      const text = arrived.length > 0 && this.messageCount > countAtStart ? dropEchoedSentences(generated, arrived) : generated
+      if (text.length === 0) return
       const typingMs = Math.min(timing.typing.maxMs, timing.typing.baseMs + timing.typing.perCharMs * text.length) - (clock.now() - started)
       const gapMs = timing.minGapMs - (clock.now() - this.lastMessageAt)
       const delay = Math.max(typingMs, gapMs, 0)

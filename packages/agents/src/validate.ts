@@ -167,11 +167,13 @@ export function fixAddress(text: string, names: readonly string[], polite: boole
     .filter((f) => f.length > 0)
     .sort((a, b) => b.length - a.length)
     .map(escapeRe)
-  if (forms.length === 0) return text
+  // 이름이 아닌 호칭("개발자님, ~")도 맨 앞이면 지운다(실측: 직업으로 불렀다).
+  const titleLead = /^\s*[가-힣A-Za-z]{2,8}\s?님\s*[,!]\s*/
+  if (forms.length === 0) return text.replace(titleLead, '').trim()
   const alt = forms.join('|')
   const lead = new RegExp(String.raw`^\s*(?:${alt})(?:\s*(?:씨|님)|아|야)?\s*[,!~]+\s*`)
   let out = text
-  for (let i = 0; i < 3 && lead.test(out); i++) out = out.replace(lead, '')
+  for (let i = 0; i < 3 && (lead.test(out) || titleLead.test(out)); i++) out = out.replace(lead, '').replace(titleLead, '')
   if (polite) out = out.replace(new RegExp(String.raw`(^|[\s,])(${alt})(?=\s*[,.!?~]|$)`, 'g'), '$1$2 씨')
   return out.trim()
 }

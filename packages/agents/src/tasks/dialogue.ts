@@ -38,6 +38,14 @@ export const dialogueTask: TaskSpec<DialogueInput, { action: 'speak' | 'silent';
     return { ...base, temperature: Math.max(0.1, base.temperature + offset) }
   },
   maxTokens: (ctx) => ctx.config.llm.maxTokens.dialogue ?? 120,
+  retryHint: (issues) => {
+    const hints: string[] = []
+    if (issues.includes('repetition')) hints.push('방금 쓴 말은 이미 이 방에서 나온 말과 겹친다. 같은 이야기를 되풀이하지 말고 새로운 말을 하거나, 할 말이 없으면 침묵한다.')
+    if (issues.includes('speech_level')) hints.push('방금 쓴 말에 반말이 섞였다. 처음부터 끝까지 존댓말로 쓴다.')
+    if (issues.includes('too_long')) hints.push('방금 쓴 말이 너무 길다. 한 문장으로 짧게 쓴다.')
+    if (issues.includes('foreign_script')) hints.push('한국어로만 쓴다.')
+    return hints.length > 0 ? hints.join(' ') : null
+  },
   schema: (i) => {
     const mustSpeak = i.mode === 'greeting' || i.mode === 'newcomer_greeting' || i.mode === 'open_private'
     return z.object({
