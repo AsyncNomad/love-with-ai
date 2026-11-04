@@ -32,6 +32,10 @@ const INSTRUCTIONS: Record<DialogueMode, string> = {
 /** 소형 모델이 돌려 쓰는 상투적 표현. 최근 대화에 여러 번 나오면 쓰지 말라고 알려 준다(실측). */
 const STOCK_PHRASES = ['오늘 하루', '편안하', '분위기', '시간이 빨리', '기억에 남', '다행']
 
+function metooCount(texts: readonly string[]): number {
+  return texts.filter((t) => /^\s*저도/.test(t)).length
+}
+
 function hourOf(sim: string): number {
   const m = /^D\d (\d{2}):/.exec(sim)
   return m ? Number(m[1]) : 12
@@ -52,6 +56,7 @@ export const dialogueTask: TaskSpec<DialogueInput, { action: 'speak' | 'silent';
     if (issues.includes('speech_level')) hints.push('방금 쓴 말에 반말이 섞였다. 처음부터 끝까지 존댓말로 쓴다.')
     if (issues.includes('too_long')) hints.push('방금 쓴 말이 너무 길다. 한 문장으로 짧게 쓴다.')
     if (issues.includes('foreign_script')) hints.push('한국어로만 쓴다.')
+    if (issues.includes('self_third_person')) hints.push('기억을 읽어 주듯 해설하지 말고, 네가 직접 상대에게 하는 말로 쓴다. 자기 이름을 3인칭으로 쓰지 않는다.')
     if (issues.includes('time_mismatch')) hints.push('지금은 하루가 끝나지 않았다. 하루를 다 보낸 것처럼 묻거나 말하지 않는다.')
     return hints.length > 0 ? hints.join(' ') : null
   },
@@ -82,6 +87,9 @@ export const dialogueTask: TaskSpec<DialogueInput, { action: 'speak' | 'silent';
           ? `\n이미 여러 번 나온 화제(${worn.join(', ')})는 꺼내지 않는다. 오늘 일정에 대한 소감, 하는 일, 연애에서 중요하게 여기는 것, 여기 와서 느낀 점처럼 다른 이야기를 한다.`
           : `\n${worn.join(', ')} 이야기는 이미 많이 했다. 상대가 먼저 꺼내지 않으면 다시 꺼내지 않는다.`
     // 장소 이름을 메시지마다 되풀이하는 경우가 많았다(실측: 데이트 내내 "바닷가 카페에서"). 이미 두 번 말했으면 그만 말하게 한다.
+    // 맞장구("저도요", "저도 ~해요")로만 이어지는 대화를 막는다. 실측: 3일차 거실에서 셋 중 하나가 "저도"로 시작했다.
+    const mirroring = metooCount(view.roomMessages(i.roomId, 6, 1200).map((m) => m.text)) >= 2
+    const metooHint = mirroring ? '\n이번에는 "저도"로 시작하지 않는다. 너만의 생각이나 상대와 다른 점을 말한다.' : ''
     const stock = view.wornTopics(STOCK_PHRASES, 30, 3)
     const stockHint = stock.length > 0 ? `\n요즘 자주 나온 말(${stock.map((x) => `"${x}"`).join(', ')})은 쓰지 않는다.` : ''
     const place = view.roomLocation(i.roomId)
@@ -98,7 +106,7 @@ export const dialogueTask: TaskSpec<DialogueInput, { action: 'speak' | 'silent';
       sharedHistorySection(view),
       memorySection(view, ctx, others),
       conversationSection(view, ctx, i.roomId),
-      `[지금 할 일]\n${INSTRUCTIONS[i.mode]}${meetingHint}${topicHint}${stockHint}${placeHint}`,
+      `[지금 할 일]\n${INSTRUCTIONS[i.mode]}${meetingHint}${topicHint}${stockHint}${metooHint}${placeHint}`,
     )
     const self = view.self().cast
     return { system, user, view, meta: { mode: i.mode, speakerName: self.name, roomId: i.roomId } }
@@ -124,7 +132,9 @@ export const dialogueTask: TaskSpec<DialogueInput, { action: 'speak' | 'silent';
     const timed = dropDayOverSentences(deduped, hourOf(ctx.state.simTime))
     if (timed.length === 0) return { issues: ['time_mismatch'] }
     const lastOwn = view.ownRecentMessages(1)[0]
-    const normalized = lastOwn && hasEmoji(lastOwn) ? stripEmoji(timed) : timed
+    // 맞장구가 이미 이어지고 있으면 앞의 "저도요."를 뗀다. 뒤에 다른 이야기가 오는 경우가 많아 말이 어긋났다("저도요. 주말엔 수영장…").
+    const unmirrored = metooCount(view.roomMessages(i.roomId, 6, 1200).map((m) => m.text)) >= 2 ? timed.replace(/^저도요[.!,~]?\s+(?=\S)/, '') : timed
+    const normalized = lastOwn && hasEmoji(lastOwn) ? stripEmoji(unmirrored) : unmirrored
     if (normalized.length === 0) return { value: { text: null } }
     const fitted = fitLength(normalized, maxChars) ?? normalized
     const issues = checkDialogue(
@@ -139,6 +149,10 @@ export const dialogueTask: TaskSpec<DialogueInput, { action: 'speak' | 'silent';
       },
       ctx.config.validation,
     )
+    // 실측: 기억 요약 문장을 대사로 옮겨 "송건우 씨는 …, 김하린과 여행 이야기를 나누며 …"처럼 자기를 3인칭으로 해설했다.
+    // 인사·자기소개가 아닌데 자기 전체 이름이 나오면 해설로 보고 다시 쓰게 한다.
+    // "저 김하린입니다"(자기소개)는 괜찮고, "김하린과 …", "김하린은 …"처럼 3인칭 조사가 붙으면 해설이다.
+    if (speakerName.length > 0 && new RegExp(`${speakerName}(과|와|은|는|이가|의|을|를|에게|한테|씨)`).test(fitted)) issues.push('self_third_person')
     return issues.length > 0 ? { issues } : { value: { text: fitted } }
   },
 }

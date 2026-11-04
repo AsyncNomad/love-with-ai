@@ -69,6 +69,20 @@ describe('ObservationView isolation', () => {
     expect(a.scheduleSoFar()).toBe('1일차(오늘): 심야 대화')
   })
 
+  it('rejects a line that narrates the speaker in the third person (memory read aloud)', () => {
+    const s = setup()
+    for (const id of ['a', 'b']) push(s, { type: 'MEMBER_JOINED', payload: { roomId: 'living', participantId: id }, visibility: { kind: 'room' } })
+    const ctx = { state: s, config: defaultConfig }
+    const input = { speakerId: 'a', roomId: 'living', mode: 'reply' as const, isPrivate: false }
+    const built = dialogueTask.build(input, ctx)
+    const narrated = dialogueTask.finish({ action: 'speak', text: '박도현 씨는 이서윤과 여행 이야기를 나누며 가까워지는 것 같습니다.' }, input, ctx, built)
+    expect('issues' in narrated && narrated.issues).toContain('self_third_person')
+    const normal = dialogueTask.finish({ action: 'speak', text: '도현 씨는 여행 자주 가세요?' }, input, ctx, built)
+    expect('value' in normal).toBe(true)
+    const intro = dialogueTask.finish({ action: 'speak', text: '안녕하세요, 저 이서윤이에요.' }, input, ctx, built)
+    expect('value' in intro).toBe(true)
+  })
+
   it('reports topics that keep coming up', () => {
     const s = setup()
     for (const id of ['a', 'b']) push(s, { type: 'MEMBER_JOINED', payload: { roomId: 'living', participantId: id }, visibility: { kind: 'room' } })

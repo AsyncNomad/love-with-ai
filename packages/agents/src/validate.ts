@@ -14,6 +14,7 @@ export type IssueCode =
   | 'bad_choice'
   | 'foreign_script'
   | 'speech_level'
+  | 'self_third_person'
 
 export interface DialogueCheckInput {
   text: string
