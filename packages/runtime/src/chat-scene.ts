@@ -47,6 +47,8 @@ export class ChatScene {
   private active = false
   private accepting = false
   private chainBudget = 0
+  /** 사람이 마지막으로 말한 뒤 말한 AI. 사람의 말 하나에 같은 사람이 두 번 답하지 않게 한다(실측: A·B·A가 같은 질문에 두 번 답했다). */
+  private readonly spokeSinceHuman = new Set<ParticipantId>()
   private readonly inFlight = new Map<ParticipantId, InFlight>()
   private readonly typingIds = new Set<ParticipantId>()
   private readonly recent: RecentMessage[] = []
@@ -161,8 +163,13 @@ export class ChatScene {
     this.lastSpokeAt.set(speaker, this.deps.clock.now())
     this.lastMessageAt = this.deps.clock.now()
 
-    if (speaker === this.humanId) this.onHumanMessage(e.seq)
-    else this.onAiMessage(speaker)
+    if (speaker === this.humanId) {
+      this.spokeSinceHuman.clear()
+      this.onHumanMessage(e.seq)
+    } else {
+      this.spokeSinceHuman.add(speaker)
+      this.onAiMessage(speaker)
+    }
     if (!this.isBackground) this.armIdle()
   }
 
@@ -200,7 +207,7 @@ export class ChatScene {
       return
     }
     if (this.chainBudget > 0 && this.deps.rng.chance(this.config.scheduler.followUpChance)) {
-      const next = this.choose(1, speaker)[0]
+      const next = this.choose(1, speaker, this.spokeSinceHuman)[0]
       if (next) {
         this.chainBudget--
         this.request(next, 'follow_up', Priority.P1_SCENE, false)
@@ -208,7 +215,7 @@ export class ChatScene {
     }
   }
 
-  private choose(k: number, exclude?: ParticipantId): ParticipantId[] {
+  private choose(k: number, exclude?: ParticipantId, alsoExclude?: ReadonlySet<ParticipantId>): ParticipantId[] {
     const state = this.deps.session.state
     const human = this.humanId
     const sc = this.config.scheduler
@@ -217,7 +224,7 @@ export class ChatScene {
     const now = this.deps.clock.now()
     const candidates: SpeakerFeatures[] = []
     for (const id of this.deps.house.members(this.roomId)) {
-      if (id === human || id === exclude || this.inFlight.has(id)) continue
+      if (id === human || id === exclude || alsoExclude?.has(id) || this.inFlight.has(id)) continue
       const cast = state.participants.get(id)?.cast
       if (!cast) continue
       let consecutive = 0

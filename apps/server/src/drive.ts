@@ -29,6 +29,27 @@ const LINES = [
   '처음엔 어색했는데 이제 좀 편해졌어요',
 ]
 
+/**
+ * AI가 사람에게 질문하면 그 질문에 맞춰 대답한다. 맥락 없는 문장만 던지면 AI의 대화 품질을 제대로 볼 수 없다(실측).
+ * 낱말 → 대답 표다. 맞는 낱말이 없으면 무난한 대답을 쓴다.
+ */
+const ANSWERS: [RegExp, string][] = [
+  [/영화|드라마/, '요즘은 스릴러를 자주 봐요. 무서운 건 잘 못 보고요'],
+  [/운동|러닝|뛰/, '주말 아침에 한강에서 5킬로 정도 뛰어요'],
+  [/음식|먹|맛집|요리/, '매운 거 좋아해요. 떡볶이는 일주일에 한 번은 먹어요'],
+  [/여행|계획/, '즉흥적으로 떠나는 편이에요. 계획은 숙소 정도만 잡아요'],
+  [/일|직업|회사|개발/, '개발자로 일해요. 요즘 마감이라 좀 바빠요'],
+  [/쉬는 날|주말|휴일/, '보통 늦잠 자고 동네 카페 가요'],
+  [/커피|차/, '커피는 잘 못 마셔서 차를 마셔요'],
+  [/기분|어떠|어땠|괜찮/, '처음엔 긴장됐는데 지금은 편해요'],
+  [/연애|이상형|좋아하는 사람/, '대화가 편한 사람이 좋아요'],
+  [/음악|노래/, '잔잔한 인디 음악 자주 들어요'],
+]
+
+function answerFor(question: string): string {
+  return ANSWERS.find(([re]) => re.test(question))?.[1] ?? '음, 저는 그냥 무난한 편이에요. 그쪽은요?'
+}
+
 export function drive(opts: DriveOptions): Promise<string> {
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(opts.url)
@@ -37,6 +58,7 @@ export function drive(opts: DriveOptions): Promise<string> {
     let created = false
     const answered = new Set<string>()
     const recentLines: string[] = []
+    const answeredSeqs = new Set<number>()
     const send = (command: Command): void => {
       const msg: ClientMessage = { type: 'command', commandId: `drive-${++counter}`, command }
       ws.send(JSON.stringify(msg))
@@ -55,7 +77,20 @@ export function drive(opts: DriveOptions): Promise<string> {
       send({ type: 'sendMessage', roomId: room.id, text: line })
     }, opts.chatEveryMs)
 
+    // 내가 있는 방의 마지막 말이 질문이면, 사람이 읽고 치는 시간(약 5초) 뒤에 그 질문에 대답한다.
+    const maybeAnswer = (): void => {
+      if (view.status !== 'running') return
+      for (const room of Object.values(view.rooms)) {
+        if (room.kind === 'pd' || !room.isMember || room.status !== 'open') continue
+        const last = view.messages[room.id]?.at(-1)
+        if (!last || last.kind !== 'chat' || last.senderId === view.meId || !last.text.trim().endsWith('?') || answeredSeqs.has(last.seq)) continue
+        answeredSeqs.add(last.seq)
+        setTimeout(() => send({ type: 'sendMessage', roomId: room.id, text: answerFor(last.text) }), 5000)
+      }
+    }
+
     const react = (): void => {
+      maybeAnswer()
       if (opts.profile && !created && (view.status === 'idle' || view.status === 'completed') && view.runId === null) {
         created = true
         send({ type: 'createRun', profile: opts.profile })

@@ -121,7 +121,7 @@ export class ObservationView {
       const mine = room.memberships.find((m) => m.participantId === this.ownerId)
       if (!mine) continue
       const stage = stages.filter((s) => s.seq < room.openedSeq).at(-1)
-      const when = stage ? stageLabel(stage.payload.stage) : ''
+      const when = stage ? relativeStageLabel(stage.payload.stage, this.state.stage) : ''
       const others = [...new Set(room.memberships.map((m) => m.participantId))].filter((id) => id !== this.ownerId)
       const names = others.map((id) => this.label(id)).join(', ')
       const who = `${names}${withParticle(names)} ${others.length === 1 ? '단둘이' : '함께'}`
@@ -157,7 +157,9 @@ export class ObservationView {
       if (list.at(-1) !== meta.label) list.push(meta.label)
       byDay.set(meta.day, list)
     }
-    return [...byDay].map(([day, labels]) => `${day}일차: ${labels.join(' · ')}`).join('\n')
+    const today = this.state.stage ? STAGE_META[this.state.stage].day : 0
+    const rel = (day: number): string => (day === today ? '(오늘)' : day === today - 1 ? '(어제)' : '')
+    return [...byDay].map(([day, labels]) => `${day}일차${rel(day)}: ${labels.join(' · ')}`).join('\n')
   }
 
   /**
@@ -291,7 +293,14 @@ function withParticle(word: string): string {
   return code % 28 === 0 ? '와' : '과'
 }
 
-function stageLabel(stage: StageId): string {
+/**
+ * "오늘 첫인상 대화", "어제 심야 대화"처럼 지금 기준의 상대 날짜를 붙인다.
+ * 실측: 1일차 밤에 같은 날 오후의 대화를 "어제"라고 말했다. "1일차"만 주면 오늘인지 어제인지 헷갈린다.
+ */
+function relativeStageLabel(stage: StageId, current: StageId | null): string {
   const meta = STAGE_META[stage]
-  return `${meta.day}일차 ${meta.label}`
+  const today = current ? STAGE_META[current].day : meta.day
+  const diff = today - meta.day
+  const day = diff === 0 ? '오늘' : diff === 1 ? '어제' : diff === 2 ? '그저께' : `${meta.day}일차`
+  return `${day} ${meta.label}`
 }

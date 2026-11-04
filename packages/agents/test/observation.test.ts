@@ -60,10 +60,10 @@ describe('ObservationView isolation', () => {
     push(s, { type: 'ROOM_OPENED', payload: { roomId: 'terrace', kind: 'private', location: '테라스' }, visibility: { kind: 'server' } })
     for (const id of ['a', 'b']) push(s, { type: 'MEMBER_JOINED', payload: { roomId: 'terrace', participantId: id }, visibility: { kind: 'room' } })
     const a = new ObservationView(s, 'a', defaultConfig)
-    expect(a.sharedHistory(1_000).map((l) => l.line)).toEqual(['1일차 심야 대화 · 테라스 · 박도현과 단둘이'])
+    expect(a.sharedHistory(1_000).map((l) => l.line)).toEqual(['오늘 심야 대화 · 테라스 · 박도현과 단둘이'])
     for (const seq of a.touched) expect(canObserve(s, 'a', s.events[seq - 1]!)).toBe(true)
     expect(new ObservationView(s, 'c', defaultConfig).sharedHistory(1_000)).toEqual([])
-    expect(a.scheduleSoFar()).toBe('1일차: 심야 대화')
+    expect(a.scheduleSoFar()).toBe('1일차(오늘): 심야 대화')
   })
 
   it('reports topics that keep coming up', () => {
