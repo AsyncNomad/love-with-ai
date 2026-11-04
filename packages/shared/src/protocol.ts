@@ -125,6 +125,7 @@ export type ViewPatch =
   | { type: 'reset'; view: HumanView }
   | { type: 'status'; status: RunStatus; pauseReason: string | null; completedReason: string | null }
   | { type: 'casting'; casting: CastingView | null }
+  | { type: 'me'; meId: string }
   | { type: 'stage'; stage: HumanView['stage'] }
   | { type: 'timer'; timer: TimerView | null }
   | { type: 'participant'; participant: ParticipantView }
@@ -143,6 +144,8 @@ export function applyPatch(view: HumanView, patch: ViewPatch): HumanView {
       return { ...view, status: patch.status, pauseReason: patch.pauseReason, completedReason: patch.completedReason }
     case 'casting':
       return { ...view, casting: patch.casting }
+    case 'me':
+      return { ...view, meId: patch.meId }
     case 'stage':
       return { ...view, stage: patch.stage }
     case 'timer':

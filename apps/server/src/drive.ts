@@ -47,7 +47,7 @@ const ANSWERS: [RegExp, string][] = [
 ]
 
 function answerFor(question: string): string {
-  return ANSWERS.find(([re]) => re.test(question))?.[1] ?? '음, 저는 그냥 무난한 편이에요. 그쪽은요?'
+  return ANSWERS.find(([re]) => re.test(question))?.[1] ?? '음, 저는 그냥 무난한 편이에요.'
 }
 
 export function drive(opts: DriveOptions): Promise<string> {
@@ -83,7 +83,8 @@ export function drive(opts: DriveOptions): Promise<string> {
       for (const room of Object.values(view.rooms)) {
         if (room.kind === 'pd' || !room.isMember || room.status !== 'open') continue
         const last = view.messages[room.id]?.at(-1)
-        if (!last || last.kind !== 'chat' || last.senderId === view.meId || !last.text.trim().endsWith('?') || answeredSeqs.has(last.seq)) continue
+        const mine = last?.senderId === view.meId || (last?.senderId ? view.participants[last.senderId]?.isMe : false)
+        if (!last || last.kind !== 'chat' || mine || !last.text.trim().endsWith('?') || answeredSeqs.has(last.seq)) continue
         answeredSeqs.add(last.seq)
         setTimeout(() => send({ type: 'sendMessage', roomId: room.id, text: answerFor(last.text) }), 5000)
       }

@@ -3,7 +3,8 @@ import { defaultConfig } from '@heart/config'
 import { createRng } from '@heart/engine'
 import { FakeImage, FakeLlm, PassthroughLease } from '@heart/inference'
 import { Game, MemoryAvatarStore, MemorySink, VirtualTimerHost, auditRun, type TimerHost, type Violation } from '@heart/runtime'
-import type { GameConfig, HumanProfile } from '@heart/shared'
+import type { GameConfig, HumanProfile, HumanView } from '@heart/shared'
+import { applyPatch, emptyHumanView } from '@heart/shared'
 import { SimHuman } from './sim-human'
 
 export interface SimOptions {
@@ -24,6 +25,9 @@ export interface SimResult {
   rejected: number
   violations: Violation[]
   sink: MemorySink
+  /** 서버 쪽 화면 상태(스냅숏)와, 처음부터 패치만 받아 쌓은 클라이언트 쪽 화면 상태. 둘이 같아야 한다. */
+  serverView: HumanView
+  clientView: HumanView
 }
 
 export const DEFAULT_SIM_HUMAN: HumanProfile = {
@@ -82,6 +86,10 @@ export async function runSimulation(opts: SimOptions): Promise<SimResult> {
     avatars: new MemoryAvatarStore(),
     host,
   })
+  let clientView = emptyHumanView()
+  game.projector.subscribe((patches) => {
+    for (const p of patches) clientView = applyPatch(clientView, p)
+  })
   const bot = new SimHuman(game, rng.fork('human'), host, { chatIntervalMs: { min: 8_000, max: 40_000 }, respondDelayMs: { min: 1_000, max: 15_000 } })
   let finished = false
   let failure: unknown = null
@@ -107,5 +115,7 @@ export async function runSimulation(opts: SimOptions): Promise<SimResult> {
     rejected: sink.calls.filter((c) => c.outcome === 'rejected').length,
     violations: auditRun(sink.events, sink.deliveries, config),
     sink,
+    serverView: game.projector.snapshot(),
+    clientView,
   }
 }

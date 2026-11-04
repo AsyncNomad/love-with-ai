@@ -72,7 +72,8 @@ export class HumanViewProjector {
       }
       case 'PARTICIPANT_CAST':
         if (e.payload.participant.isHuman) {
-          this.view = { ...this.view, meId: e.payload.participant.id }
+          // 패치로 보내야 연결된 클라이언트도 안다. 상태만 바꾸면 재접속 전까지 meId가 비어 있었다(실측: 1:1 상대 표시가 틀어질 수 있음).
+          this.emit({ type: 'me', meId: e.payload.participant.id })
           this.emitParticipant(e.payload.participant.id)
         }
         return

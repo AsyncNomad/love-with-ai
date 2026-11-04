@@ -47,6 +47,12 @@ describe('headless 3-day simulation (FakeLlm, virtual clock)', () => {
     }
   })
 
+  it('keeps the client view (built only from patches) identical to the server snapshot', async () => {
+    const r = await runSimulation({ seed: 'client-view' })
+    expect(r.clientView.meId).not.toBeNull()
+    expect(r.clientView).toEqual(r.serverView)
+  })
+
   it('delivers anonymous cards without any trace of the sender', async () => {
     const r = await runSimulation({ seed: 'cards' })
     const received = r.sink.events.filter((e) => e.type === 'SIGNAL_CARD_RECEIVED')
