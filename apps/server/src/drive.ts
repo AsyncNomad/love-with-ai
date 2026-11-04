@@ -46,8 +46,14 @@ const ANSWERS: [RegExp, string][] = [
   [/음악|노래/, '잔잔한 인디 음악 자주 들어요'],
 ]
 
-function answerFor(question: string): string {
-  return ANSWERS.find(([re]) => re.test(question))?.[1] ?? '음, 저는 그냥 무난한 편이에요.'
+const FALLBACK_ANSWERS = ['음, 그건 생각해 본 적이 없네요', '저는 반반이에요', '그때그때 달라요', '좋아하는 편이에요', '잘 모르겠어요, 그쪽 얘기가 더 궁금해요']
+
+/** 같은 방에서 같은 대답을 두 번 하지 않는다(실측: 같은 대답을 되풀이해 AI가 그 말을 계속 붙잡았다). */
+function answerFor(question: string, used: Set<string>): string {
+  const candidates = [...ANSWERS.filter(([re]) => re.test(question)).map(([, a]) => a), ...FALLBACK_ANSWERS]
+  const pick = candidates.find((a) => !used.has(a)) ?? (FALLBACK_ANSWERS[0] as string)
+  used.add(pick)
+  return pick
 }
 
 export function drive(opts: DriveOptions): Promise<string> {
@@ -59,6 +65,7 @@ export function drive(opts: DriveOptions): Promise<string> {
     const answered = new Set<string>()
     const recentLines: string[] = []
     const answeredSeqs = new Set<number>()
+    const usedAnswers = new Map<string, Set<string>>()
     const send = (command: Command): void => {
       const msg: ClientMessage = { type: 'command', commandId: `drive-${++counter}`, command }
       ws.send(JSON.stringify(msg))
@@ -86,7 +93,9 @@ export function drive(opts: DriveOptions): Promise<string> {
         const mine = last?.senderId === view.meId || (last?.senderId ? view.participants[last.senderId]?.isMe : false)
         if (!last || last.kind !== 'chat' || mine || !last.text.trim().endsWith('?') || answeredSeqs.has(last.seq)) continue
         answeredSeqs.add(last.seq)
-        setTimeout(() => send({ type: 'sendMessage', roomId: room.id, text: answerFor(last.text) }), 5000)
+        const used = usedAnswers.get(room.id) ?? new Set<string>()
+        usedAnswers.set(room.id, used)
+        setTimeout(() => send({ type: 'sendMessage', roomId: room.id, text: answerFor(last.text, used) }), 5000)
       }
     }
 

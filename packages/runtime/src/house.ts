@@ -3,7 +3,8 @@ import { currentMembers, mustParticipant } from '@heart/engine'
 import type { GameSession } from './session'
 
 export const LIVING_ROOM: RoomId = 'living'
-const PRIVATE_LOCATIONS = ['마당', '테라스', '서재', '루프탑', '정원 벤치', '주방'] as const
+// 장소 이름이 없는 일을 지어내게 한다(실측: 1:1 장소가 "주방"이라 "함께 밥을 짓느라"). 활동을 떠올리게 하는 이름은 쓰지 않는다.
+const PRIVATE_LOCATIONS = ['마당', '테라스', '서재', '루프탑', '정원 벤치', '라운지'] as const
 
 /**
  * 공간 조작(방, 멤버십, 입장, 공개, PD 안내). 모든 변경은 이벤트로 남는다.

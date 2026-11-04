@@ -3,7 +3,7 @@ import type { ParticipantId, RoomId } from '@heart/shared'
 import { ObservationView } from '../observation'
 import { COMMON_RULES, conversationSection, joinSections, memorySection, peopleSection, personaSection, sharedHistorySection, situationSection } from '../prompts'
 import type { TaskSpec } from '../task'
-import { checkDialogue, dropEchoedSentences, fitLength, fixAddress, limitLaughter, normalizeUtterance } from '../validate'
+import { checkDialogue, dropDayOverSentences, dropEchoedSentences, fitLength, fixAddress, hasEmoji, limitLaughter, normalizeUtterance, stripEmoji } from '../validate'
 
 export type DialogueMode = 'reply' | 'start_topic' | 'greeting' | 'newcomer_greeting' | 'open_private' | 'wrap_up' | 'follow_up'
 
@@ -25,8 +25,16 @@ const INSTRUCTIONS: Record<DialogueMode, string> = {
   start_topic: '대화가 잠시 끊겼다. 지금 장소나 방금까지 나온 얘기와 이어지는 가벼운 화제를 꺼내라. 이미 나온 얘기를 반복하지 마라.',
   greeting: '방금 숙소 거실에 처음 들어왔다. 먼저 와 있던 사람들에게 "안녕하세요"로 짧게 인사하고 이름을 말해라. 나이나 직업은 아직 말하지 않는다.',
   newcomer_greeting: '둘째 날 새 입주자로 숙소 거실에 들어왔다. 먼저 와 있던 사람들에게 "안녕하세요"로 인사하고 이름, 나이, 직업을 짧게 소개해라.',
-  open_private: '단둘이 이야기할 시간이 생겼다. 상대에게 먼저 가볍게 말을 걸어라.',
+  open_private: '단둘이 이야기할 시간이 생겼다. 상대에게 먼저 가볍게 말을 건다. 상대에 대해 궁금했던 것이나 아까 나눈 이야기를 한 문장으로 꺼낸다. 하루를 정리하는 긴 소감은 말하지 않는다.',
   wrap_up: '대화 시간이 곧 끝난다. 새 화제를 꺼내지 말고 자연스럽게 마무리하는 말을 해라.',
+}
+
+/** 소형 모델이 돌려 쓰는 상투적 표현. 최근 대화에 여러 번 나오면 쓰지 말라고 알려 준다(실측). */
+const STOCK_PHRASES = ['오늘 하루', '편안하', '분위기', '시간이 빨리', '기억에 남', '다행']
+
+function hourOf(sim: string): number {
+  const m = /^D\d (\d{2}):/.exec(sim)
+  return m ? Number(m[1]) : 12
 }
 
 export const dialogueTask: TaskSpec<DialogueInput, { action: 'speak' | 'silent'; text: string }, DialogueOutput> = {
@@ -44,6 +52,7 @@ export const dialogueTask: TaskSpec<DialogueInput, { action: 'speak' | 'silent';
     if (issues.includes('speech_level')) hints.push('방금 쓴 말에 반말이 섞였다. 처음부터 끝까지 존댓말로 쓴다.')
     if (issues.includes('too_long')) hints.push('방금 쓴 말이 너무 길다. 한 문장으로 짧게 쓴다.')
     if (issues.includes('foreign_script')) hints.push('한국어로만 쓴다.')
+    if (issues.includes('time_mismatch')) hints.push('지금은 하루가 끝나지 않았다. 하루를 다 보낸 것처럼 묻거나 말하지 않는다.')
     return hints.length > 0 ? hints.join(' ') : null
   },
   schema: (i) => {
@@ -73,6 +82,8 @@ export const dialogueTask: TaskSpec<DialogueInput, { action: 'speak' | 'silent';
           ? `\n이미 여러 번 나온 화제(${worn.join(', ')})는 꺼내지 않는다. 오늘 일정에 대한 소감, 하는 일, 연애에서 중요하게 여기는 것, 여기 와서 느낀 점처럼 다른 이야기를 한다.`
           : `\n${worn.join(', ')} 이야기는 이미 많이 했다. 상대가 먼저 꺼내지 않으면 다시 꺼내지 않는다.`
     // 장소 이름을 메시지마다 되풀이하는 경우가 많았다(실측: 데이트 내내 "바닷가 카페에서"). 이미 두 번 말했으면 그만 말하게 한다.
+    const stock = view.wornTopics(STOCK_PHRASES, 30, 3)
+    const stockHint = stock.length > 0 ? `\n요즘 자주 나온 말(${stock.map((x) => `"${x}"`).join(', ')})은 쓰지 않는다.` : ''
     const place = view.roomLocation(i.roomId)
     const placeHint =
       i.roomId !== 'living' && view.ownRecentMessages(6).filter((t) => t.includes(place)).length >= 2 ? `\n${place} 이야기는 이미 했다. 장소 이야기를 또 꺼내지 않는다.` : ''
@@ -87,7 +98,7 @@ export const dialogueTask: TaskSpec<DialogueInput, { action: 'speak' | 'silent';
       sharedHistorySection(view),
       memorySection(view, ctx, others),
       conversationSection(view, ctx, i.roomId),
-      `[지금 할 일]\n${INSTRUCTIONS[i.mode]}${meetingHint}${topicHint}${placeHint}`,
+      `[지금 할 일]\n${INSTRUCTIONS[i.mode]}${meetingHint}${topicHint}${stockHint}${placeHint}`,
     )
     const self = view.self().cast
     return { system, user, view, meta: { mode: i.mode, speakerName: self.name, roomId: i.roomId } }
@@ -108,8 +119,13 @@ export const dialogueTask: TaskSpec<DialogueInput, { action: 'speak' | 'silent';
     if (laughed.length === 0) return { value: { text: null } }
     // 이 방의 최근 문장(누가 했든)을 되풀이한 문장은 지운다. 다 지워지면 반복으로 거부하고 다시 만든다.
     const recentRoom = view.roomMessages(i.roomId, 10, 2000).filter((m) => m.speakerId !== 'pd').map((m) => m.text)
-    const normalized = dropEchoedSentences(laughed, recentRoom)
-    if (normalized.length === 0) return { issues: ['repetition'] }
+    const deduped = dropEchoedSentences(laughed, recentRoom)
+    if (deduped.length === 0) return { issues: ['repetition'] }
+    const timed = dropDayOverSentences(deduped, hourOf(ctx.state.simTime))
+    if (timed.length === 0) return { issues: ['time_mismatch'] }
+    const lastOwn = view.ownRecentMessages(1)[0]
+    const normalized = lastOwn && hasEmoji(lastOwn) ? stripEmoji(timed) : timed
+    if (normalized.length === 0) return { value: { text: null } }
     const fitted = fitLength(normalized, maxChars) ?? normalized
     const issues = checkDialogue(
       {

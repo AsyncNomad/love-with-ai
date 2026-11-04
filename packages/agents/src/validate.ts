@@ -240,3 +240,27 @@ export function similarity(a: string, b: string): number {
   for (const g of ga) if (gb.has(g)) inter++
   return inter / (ga.size + gb.size - inter)
 }
+
+/**
+ * 하루가 끝나지 않았는데 하루를 다 보낸 것처럼 묻거나 말하는 문장(실측: 아침 9시에 여럿이 "오늘 하루도 편안하게 보내셨나요?").
+ * 저녁(18시) 전에는 이런 문장을 지운다.
+ */
+const DAY_OVER = /오늘 하루(는|도|가)?[^.?!]{0,12}(보내셨|보냈|지났|지나갔|어떠셨|어땠|괜찮으셨|마무리)/
+
+export function dropDayOverSentences(text: string, hour: number): string {
+  if (hour >= 18) return text
+  return sentencesOf(text)
+    .filter((s) => !DAY_OVER.test(s))
+    .join(' ')
+}
+
+const EMOJI = /\p{Extended_Pictographic}\uFE0F?/gu
+
+export function hasEmoji(text: string): boolean {
+  return new RegExp(EMOJI.source, 'u').test(text)
+}
+
+/** 이모티콘을 지운다. 직전 메시지에 이모티콘을 썼으면 이번에는 쓰지 않게 하는 데 쓴다(실측: 모든 메시지에 😊). */
+export function stripEmoji(text: string): string {
+  return text.replace(EMOJI, '').replace(/\s{2,}/g, ' ').trim()
+}

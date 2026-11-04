@@ -121,7 +121,7 @@ export const defaultConfig: GameConfig = {
     compatHintMinExposure: 0.25,
   },
   validation: {
-    maxChars: { group: 80, private: 120, intro: 140, card: 60, mailbox: 80 },
+    maxChars: { group: 80, private: 90, intro: 140, card: 60, mailbox: 80 },
     impersonationPatterns: [
       '^\\s*\\[?(PD|피디|제작진|시스템|공지)\\]?\\s*[:：]',
       '\\[(공지|시스템|PD)\\]',

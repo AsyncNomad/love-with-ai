@@ -120,6 +120,8 @@ export class ObservationView {
       if (room.kind === 'living') continue
       const mine = room.memberships.find((m) => m.participantId === this.ownerId)
       if (!mine) continue
+      // 지금 있는 방은 지난 일이 아니다. 섞이면 "지금 이 자리"를 과거의 추억처럼 말한다(실측).
+      if (room.closedSeq === null && mine.leftSeq === null) continue
       const stage = stages.filter((s) => s.seq < room.openedSeq).at(-1)
       const when = stage ? relativeStageLabel(stage.payload.stage, this.state.stage) : ''
       const others = [...new Set(room.memberships.map((m) => m.participantId))].filter((id) => id !== this.ownerId)

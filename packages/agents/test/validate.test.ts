@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { defaultConfig } from '@heart/config'
-import { asQuestion, checkDialogue, dropEchoedSentences, fitLength, fixAddress, hasCasualWord, hasEnglishWord, hasForeignScript, isCasual, isPolite, isRepeat, limitLaughter, normalizeUtterance, similarity } from '../src'
+import { asQuestion, checkDialogue, dropDayOverSentences, dropEchoedSentences, hasEmoji, stripEmoji, fitLength, fixAddress, hasCasualWord, hasEnglishWord, hasForeignScript, isCasual, isPolite, isRepeat, limitLaughter, normalizeUtterance, similarity } from '../src'
 
 const cfg = defaultConfig.validation
 const base = { speakerName: '정하린', maxChars: 80, unknownNames: [] as string[], recentOwn: [] as string[] }
@@ -184,5 +184,18 @@ describe('fifth real-model run', () => {
 describe('sixth real-model run', () => {
   it('drops a leading job-title address', () => {
     expect(fixAddress('개발자님, 오늘 일로 지치셨나요?', ['김지수'], true)).toBe('오늘 일로 지치셨나요?')
+  })
+})
+
+describe('seventh real-model run', () => {
+  it('drops day-is-over sentences before evening', () => {
+    expect(dropDayOverSentences('반가워요. 오늘 하루도 편안하게 보내셨나요?', 9)).toBe('반가워요.')
+    expect(dropDayOverSentences('오늘 하루도 편안하게 보내셨나요?', 22)).toBe('오늘 하루도 편안하게 보내셨나요?')
+    expect(dropDayOverSentences('오늘 하루는 뭐 하실 거예요?', 9)).toBe('오늘 하루는 뭐 하실 거예요?')
+  })
+  it('detects and strips emoji', () => {
+    expect(hasEmoji('좋네요 😊')).toBe(true)
+    expect(stripEmoji('좋네요 😊 정말요')).toBe('좋네요 정말요')
+    expect(hasEmoji('좋네요')).toBe(false)
   })
 })

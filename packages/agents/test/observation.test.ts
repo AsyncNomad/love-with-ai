@@ -59,6 +59,9 @@ describe('ObservationView isolation', () => {
     push(s, { type: 'STAGE_STARTED', payload: { stage: 'D1_NIGHT_TALKS', simTime: 'D1 23:00' }, visibility: { kind: 'house' } })
     push(s, { type: 'ROOM_OPENED', payload: { roomId: 'terrace', kind: 'private', location: '테라스' }, visibility: { kind: 'server' } })
     for (const id of ['a', 'b']) push(s, { type: 'MEMBER_JOINED', payload: { roomId: 'terrace', participantId: id }, visibility: { kind: 'room' } })
+    // 지금 있는 방은 지난 일이 아니라서 빠진다.
+    expect(new ObservationView(s, 'a', defaultConfig).sharedHistory(1_000)).toEqual([])
+    push(s, { type: 'ROOM_CLOSED', payload: { roomId: 'terrace' }, visibility: { kind: 'room' } })
     const a = new ObservationView(s, 'a', defaultConfig)
     expect(a.sharedHistory(1_000).map((l) => l.line)).toEqual(['오늘 심야 대화 · 테라스 · 박도현과 단둘이'])
     for (const seq of a.touched) expect(canObserve(s, 'a', s.events[seq - 1]!)).toBe(true)
