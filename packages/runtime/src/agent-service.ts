@@ -174,8 +174,8 @@ export class AgentService {
   }
 
   /** AI의 제안에 대한 사람의 대답을 읽는다. 불확실하면 none. */
-  async judgeHumanAnswer(text: string, proposerId: ParticipantId, kind: SpeechProposalKind): Promise<SpeechAnswer> {
-    const res = await this.exec(humanSpeechTask, { mode: 'answer', text, candidateIds: [], proposal: { proposerId, kind } }, Priority.P1_SCENE)
+  async judgeHumanAnswer(text: string, proposerId: ParticipantId, kind: SpeechProposalKind, said: string): Promise<SpeechAnswer> {
+    const res = await this.exec(humanSpeechTask, { mode: 'answer', text, candidateIds: [], proposal: { proposerId, kind, said } }, Priority.P1_SCENE)
     return res.ok && res.value.kind === 'answer' ? res.value.answer : 'none'
   }
 

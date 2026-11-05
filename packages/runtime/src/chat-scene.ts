@@ -61,7 +61,7 @@ export class ChatScene {
   /** 한 장면에서는 말 놓기를 한 번만 제안한다(game-rules.md §11.2). */
   private proposedInScene = false
   /** AI가 사람에게 한 말 놓기 제안. 사람의 다음 말로 대답을 판정한다. */
-  private pendingHumanAnswer: { proposalId: string; proposerId: ParticipantId; kind: SpeechPick['kind'] } | null = null
+  private pendingHumanAnswer: { proposalId: string; proposerId: ParticipantId; kind: SpeechPick['kind']; said: string } | null = null
   private silentStreak = 0
   private idle: Countdown | null = null
   private idleToken = 0
@@ -198,7 +198,7 @@ export class ChatScene {
       const p = this.pendingHumanAnswer
       const human = this.humanId
       this.pendingHumanAnswer = null
-      void this.deps.agents.judgeHumanAnswer(text, p.proposerId, p.kind).then((answer) => this.deps.speech.answer(this.roomId, p.proposalId, p.proposerId, human, p.kind, answer))
+      void this.deps.agents.judgeHumanAnswer(text, p.proposerId, p.kind, p.said).then((answer) => this.deps.speech.answer(this.roomId, p.proposalId, p.proposerId, human, p.kind, answer))
     } else if (mayConcernSpeech(text)) {
       // 사람이 말 놓기를 제안했을 수 있다. 판정이 끝날 때까지 답할 사람을 고르지 않는다(제안 받은 사람이 대답하게).
       void this.handleHumanOffer(text)
@@ -259,11 +259,11 @@ export class ChatScene {
   }
 
   /** 제안하는 말이 나온 뒤: 제안을 남기고, 상대가 AI면 바로 대답하게 하고, 사람이면 다음 말을 기다린다. */
-  private async afterProposal(pick: SpeechPick): Promise<void> {
+  private async afterProposal(pick: SpeechPick, said: string): Promise<void> {
     const { speech, agents } = this.deps
     const proposalId = speech.propose(this.roomId, pick.proposerId, pick.targetId, pick.kind)
     if (pick.targetId === this.humanId) {
-      this.pendingHumanAnswer = { proposalId, proposerId: pick.proposerId, kind: pick.kind }
+      this.pendingHumanAnswer = { proposalId, proposerId: pick.proposerId, kind: pick.kind, said }
       return
     }
     const res = await agents.speechResponse(pick.targetId, pick.proposerId, pick.kind, this.roomId, this.isBackground ? Priority.P4_BACKGROUND : Priority.P1_SCENE)
@@ -360,7 +360,7 @@ export class ChatScene {
       if (delay > 0) await clock.wait(delay).promise
       if (this.isStale(entry, seenHumanSeq)) return
       spoke = house.say(this.roomId, speakerId, text, this.isBackground)
-      if (spoke && offer) void this.afterProposal(offer)
+      if (spoke && offer) void this.afterProposal(offer, text)
     } finally {
       if (this.inFlight.get(speakerId) === entry) this.inFlight.delete(speakerId)
       this.setTyping(speakerId, false)

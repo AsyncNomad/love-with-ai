@@ -25,11 +25,14 @@ export function mayConcernSpeech(text: string): boolean {
 export class SpeechEtiquette {
   constructor(private readonly session: GameSession) {}
 
-  /** 지금 이 방에서 말 놓기를 제안할 쌍(§11.2). 조건을 만족하는 쌍 중에서 확률로 하나 고른다. AI만 먼저 제안한다. */
+  /**
+   * 지금 이 방에서 말 놓기를 제안할 쌍(§11.2). 조건을 만족하는 쌍 중에서 확률로 하나 고른다. AI만 먼저 제안한다.
+   * 1:1에서만 제안한다. 여럿 앞에서는 누구에게 하는 말인지 흐려졌다(실측 13회차: 거실에서 "다음부터는 좀 더 자연스럽게…").
+   */
   pick(members: readonly ParticipantId[], humanId: ParticipantId | null, isPrivate: boolean, rng: Rng): SpeechPick | null {
+    if (!isPrivate) return null
     const { speech, relationship } = this.session.config
-    const chance = Math.min(1, speech.proposeChance * (isPrivate ? speech.privateMultiplier : 1))
-    if (!rng.chance(chance)) return null
+    if (!rng.chance(Math.min(1, speech.proposeChance * speech.privateMultiplier))) return null
     const state = this.session.state
     const pairs: SpeechPick[] = []
     for (const from of members) {

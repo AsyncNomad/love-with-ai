@@ -94,7 +94,7 @@ export interface HumanSpeechInput {
   /** offer일 때 제안 대상 후보(그 방의 AI) */
   candidateIds: ParticipantId[]
   /** answer일 때의 제안 */
-  proposal?: { proposerId: ParticipantId; kind: SpeechProposalKind }
+  proposal?: { proposerId: ParticipantId; kind: SpeechProposalKind; said: string }
 }
 
 export type HumanSpeechOutput = { kind: 'offer'; targetId: ParticipantId; offer: SpeechProposalKind } | { kind: 'answer'; answer: SpeechAnswer } | { kind: 'none' }
@@ -117,7 +117,8 @@ export const humanSpeechTask: TaskSpec<HumanSpeechInput, { target?: string; kind
     const name = (id: ParticipantId): string => ctx.state.participants.get(id)?.cast.name ?? id
     const system = '너는 메신저 대화를 읽고 말투(존댓말·반말)에 관한 뜻만 판정하는 분석기다. JSON으로만 답한다. 확실하지 않으면 확실하지 않다고 답한다.'
     if (i.mode === 'answer' && i.proposal) {
-      const user = `[제안] ${name(i.proposal.proposerId)}이(가) ${KIND_TEXT[i.proposal.kind]}는 뜻으로 말했다.\n[대답]\n${i.text}\n\n이 대답이 제안을 받아들인 것이면 accept, 상대만 편하게 하라는 것이면 you_only, 거절이면 decline, 판단할 수 없으면 unclear.`
+      // 실측(13회차): 제안과 상관없는 대답("처음엔 어색했는데 이제 좀 편해졌어요")을 받아들임으로 읽었다. 실제 제안 문장을 함께 주고, 분명할 때만 판정하게 한다.
+      const user = `[제안] ${name(i.proposal.proposerId)}이(가) ${KIND_TEXT[i.proposal.kind]}는 뜻으로 이렇게 말했다.\n<제안>\n${i.proposal.said}\n</제안>\n[바로 다음에 온 대답]\n<대답>\n${i.text}\n</대답>\n\n대답이 이 제안에 대해 분명히 좋다고 한 것이면 accept, 상대만 편하게 하라고 한 것이면 you_only, 분명히 거절한 것이면 decline. 제안과 상관없는 말이거나 판단할 수 없으면 unclear.`
       return { system, user, view: null, meta: { mode: 'answer' } }
     }
     const names = i.candidateIds.map(name).join(', ')

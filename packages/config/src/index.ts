@@ -163,13 +163,14 @@ export const defaultConfig: GameConfig = {
     timeoutMs: 120_000,
   },
   events: eventsConfig,
+  // 13회차 실측: 조건을 만족한 쌍이 10쌍이었는데 제안은 1번이었다(1:1이 짧아 기회가 적었다). 기회를 늘렸다.
   speech: {
     mutualMaxGap: 3,
     minExposure: 0.3,
-    minComfort: 50,
-    proposeChance: 0.08,
+    minComfort: 46,
+    proposeChance: 0.15,
     privateMultiplier: 3,
-    minSceneMessages: 4,
+    minSceneMessages: 2,
   },
 }
 
