@@ -1,8 +1,10 @@
-import type { ActivityOption, AgentRunner, DialogueInput, TaskResult, TaskSpec } from '@heart/agents'
+import type { ActivityOption, AgentRunner, DialogueInput, HumanSpeechOutput, SpeechResponseOutput, TaskResult, TaskSpec } from '@heart/agents'
 import {
   LlmUnavailableError,
   activityChoiceTask,
   dialogueTask,
+  humanSpeechTask,
+  speechResponseTask,
   fallbackFlavor,
   inviteDecisionTask,
   mailboxAnswerTask,
@@ -15,8 +17,8 @@ import {
   signalCardTask,
   voteTask,
 } from '@heart/agents'
-import type { CastParticipant, ParticipantId, PersonaFlavor, VoteKind } from '@heart/shared'
-import { knownProfile, pairKey, scaleDeltas, type Rng } from '@heart/engine'
+import type { CastParticipant, ParticipantId, PersonaFlavor, SpeechAnswer, SpeechProposalKind, VoteKind } from '@heart/shared'
+import { knownProfile, scaleDeltas, type Rng } from '@heart/engine'
 import { Priority, type GpuQueue } from './gpu-queue'
 import type { PauseController } from './pause'
 import type { GameSession } from './session'
@@ -157,6 +159,26 @@ export class AgentService {
     return res.ok ? res.value : null
   }
 
+  /** 말 놓기 제안에 대한 AI의 응답(game-rules.md §11.4). 실패하면 null(제안은 대답 없음으로 끝난다). */
+  async speechResponse(responderId: ParticipantId, proposerId: ParticipantId, kind: SpeechProposalKind, roomId: string, priority: number): Promise<SpeechResponseOutput | null> {
+    const res = await this.exec(speechResponseTask, { responderId, proposerId, kind, roomId }, priority)
+    return res.ok ? res.value : null
+  }
+
+  /** 사람의 말에서 말 놓기 제안을 읽는다(§11.5). 아니면 null. */
+  async judgeHumanOffer(text: string, candidateIds: ParticipantId[]): Promise<{ targetId: ParticipantId; offer: SpeechProposalKind } | null> {
+    if (candidateIds.length === 0) return null
+    const res = await this.exec(humanSpeechTask, { mode: 'offer', text, candidateIds }, Priority.P0_HUMAN_WAITING)
+    const v: HumanSpeechOutput | null = res.ok ? res.value : null
+    return v?.kind === 'offer' ? { targetId: v.targetId, offer: v.offer } : null
+  }
+
+  /** AI의 제안에 대한 사람의 대답을 읽는다. 불확실하면 none. */
+  async judgeHumanAnswer(text: string, proposerId: ParticipantId, kind: SpeechProposalKind): Promise<SpeechAnswer> {
+    const res = await this.exec(humanSpeechTask, { mode: 'answer', text, candidateIds: [], proposal: { proposerId, kind } }, Priority.P1_SCENE)
+    return res.ok && res.value.kind === 'answer' ? res.value.answer : 'none'
+  }
+
   /** 장면이 끝난 뒤 관계 평가. 백그라운드(P5)로 돌린다. */
   reflectLater(ownerId: ParticipantId, targetIds: ParticipantId[], sinceSeq: number, label: string): void {
     if (targetIds.length === 0) return
@@ -171,13 +193,7 @@ export class AgentService {
           visibility: { kind: 'participants', ids: [ownerId] },
         })
         if (ev.impression) this.recordMemory(ownerId, 'impression', ev.impression, [ev.targetId], res.evidenceSeqs)
-        if (ev.casual && this.session.state.speechLevels.get(pairKey(ownerId, ev.targetId)) !== 'casual') {
-          this.session.commit({
-            type: 'SPEECH_LEVEL_CHANGED',
-            payload: { aId: ownerId, bId: ev.targetId, level: 'casual' },
-            visibility: { kind: 'participants', ids: [ownerId, ev.targetId] },
-          })
-        }
+        // 말투는 여기서 바꾸지 않는다. 말 놓기는 제안과 응답으로만 바뀐다(D38).
       }
     })
   }

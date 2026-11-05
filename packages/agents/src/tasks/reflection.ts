@@ -22,12 +22,11 @@ export interface RelationshipEvaluation {
   deltas: Record<RelationshipAxis, number>
   significant: boolean
   impression: string
-  casual: boolean
 }
 
 const unit = z.union([z.literal(-2), z.literal(-1), z.literal(0), z.literal(1), z.literal(2)])
 
-export const relationshipEvalTask: TaskSpec<RelationshipEvalInput, { evaluations: { name: string; interest: number; comfort: number; trust: number; curiosity: number; significant: boolean; impression: string; casual: boolean }[] }, RelationshipEvaluation[]> = {
+export const relationshipEvalTask: TaskSpec<RelationshipEvalInput, { evaluations: { name: string; interest: number; comfort: number; trust: number; curiosity: number; significant: boolean; impression: string }[] }, RelationshipEvaluation[]> = {
   id: 'relationship_eval',
   ownerOf: (i) => i.ownerId,
   sampling: (ctx) => ctx.config.llm.judgement,
@@ -47,7 +46,6 @@ export const relationshipEvalTask: TaskSpec<RelationshipEvalInput, { evaluations
             curiosity: unit,
             significant: z.boolean(),
             impression: z.string().max(100),
-            casual: z.boolean(),
           }),
         )
         .max(i.targetIds.length),
@@ -60,7 +58,7 @@ export const relationshipEvalTask: TaskSpec<RelationshipEvalInput, { evaluations
     const system = joinSections(
       COMMON_RULES,
       personaSection(view),
-      '[출력 규칙]\nJSON으로만 답한다. 사람마다 interest(더 알고 싶은 마음), comfort(편안함), trust(신뢰), curiosity(궁금함)의 변화를 -2~2 정수로 준다. 0이 기본이다. 정말 큰 일이 있었을 때만 significant를 true로 한다. impression은 그 사람에 대한 지금 인상을 한 문장으로. 서로 말을 놓기로 했으면 casual을 true로.',
+      '[출력 규칙]\nJSON으로만 답한다. 사람마다 interest(더 알고 싶은 마음), comfort(편안함), trust(신뢰), curiosity(궁금함)의 변화를 -2~2 정수로 준다. 0이 기본이다. 정말 큰 일이 있었을 때만 significant를 true로 한다. impression은 그 사람에 대한 지금 인상을 한 문장으로.',
     )
     const user = joinSections(
       `[방금 있었던 일: ${i.sceneLabel}]\n<대화>\n${lines.length > 0 ? lines.join('\n') : '(특별한 대화 없음)'}\n</대화>`,
@@ -79,7 +77,6 @@ export const relationshipEvalTask: TaskSpec<RelationshipEvalInput, { evaluations
         deltas: { interest: e.interest, comfort: e.comfort, trust: e.trust, curiosity: e.curiosity },
         significant: e.significant,
         impression: hasForeignScript(e.impression) ? '' : e.impression.trim(),
-        casual: e.casual,
       })
     }
     return { value: out }

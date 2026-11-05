@@ -9,6 +9,7 @@ import { House } from './house'
 import { HumanGateway, type CommandResult } from './human-gateway'
 import { HumanViewProjector } from './human-view'
 import { PauseController } from './pause'
+import { SpeechEtiquette } from './speech-etiquette'
 import type { AvatarStore, RunSink } from './ports'
 import { GameSession } from './session'
 import { castingStage } from './stages/casting'
@@ -72,6 +73,7 @@ export class Game {
     const timers = new TimerDisplay(host, this.projector)
     const shared: SharedState = { living: null, votes: {}, plans: {}, dayStartSeq: 0 }
     const sceneRng = rng.fork('scenes')
+    const speech = new SpeechEtiquette(this.session)
     const ctx: StageContext = {
       session: this.session,
       config,
@@ -94,7 +96,7 @@ export class Game {
       },
       scene: (opts) =>
         new ChatScene(
-          { session: this.session, house, agents: this.agents, clock: this.clock, rng: sceneRng, typing: (roomId, ids) => this.projector.setTyping(roomId, ids) },
+          { session: this.session, house, agents: this.agents, clock: this.clock, rng: sceneRng, typing: (roomId, ids) => this.projector.setTyping(roomId, ids), speech },
           opts,
         ),
     }

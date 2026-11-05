@@ -163,6 +163,14 @@ export const defaultConfig: GameConfig = {
     timeoutMs: 120_000,
   },
   events: eventsConfig,
+  speech: {
+    mutualMaxGap: 3,
+    minExposure: 0.3,
+    minComfort: 50,
+    proposeChance: 0.08,
+    privateMultiplier: 3,
+    minSceneMessages: 4,
+  },
 }
 
 /** 개발용으로 단계 시간을 줄인 설정. */

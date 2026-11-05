@@ -2,7 +2,7 @@ import type { HumanView, PromptView } from '@heart/shared'
 import type { Rng } from '@heart/engine'
 import type { Game, TimerHost } from '@heart/runtime'
 
-const LINES = ['안녕하세요!', '다들 뭐 좋아하세요?', 'ㅋㅋㅋ 그거 저도요', '오늘 분위기 좋네요', '혹시 운동 하세요?', '저는 영화 보는 거 좋아해요']
+const LINES = ['안녕하세요!', '다들 뭐 좋아하세요?', 'ㅋㅋㅋ 그거 저도요', '오늘 분위기 좋네요', '혹시 운동 하세요?', '저는 영화 보는 거 좋아해요', '우리 말 편하게 할까요?']
 
 /**
  * 헤드리스 시뮬레이션용 자동 플레이어. 실제 사람과 같은 명령 경로(gateway)만 쓴다.

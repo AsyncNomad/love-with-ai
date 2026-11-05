@@ -72,6 +72,15 @@ export function renderTranscript(events: readonly AnyEvent[], config: GameConfig
       case 'MAILBOX_ANSWER':
         lines.push(`${t} [우체통 답] ${name(e.payload.answererId)}: ${e.payload.text}`)
         break
+      case 'SPEECH_PROPOSED':
+        lines.push(`${t} [말 놓기 제안] ${name(e.payload.fromId)} → ${name(e.payload.toId)} (${e.payload.kind})`)
+        break
+      case 'SPEECH_ANSWERED':
+        lines.push(`${t} [말 놓기 응답] ${name(e.payload.toId)}: ${e.payload.answer}`)
+        break
+      case 'SPEECH_LEVEL_SET':
+        lines.push(`${t} [말투] ${name(e.payload.fromId)} → ${name(e.payload.toId)}: ${e.payload.level === 'casual' ? '반말' : '존댓말'}`)
+        break
       case 'MATCHES_COMPUTED':
         if (!as) lines.push(`${t} [매칭] ${e.payload.pairs.map(([a, b]) => `${name(a)}·${name(b)}`).join(', ') || '없음'}`)
         break

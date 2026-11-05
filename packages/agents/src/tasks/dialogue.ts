@@ -1,5 +1,6 @@
 import { z } from 'zod'
-import type { ParticipantId, RoomId } from '@heart/shared'
+import type { ParticipantId, RoomId, SpeechProposalKind } from '@heart/shared'
+import { ageRelation } from '@heart/engine'
 import { ObservationView } from '../observation'
 import { COMMON_RULES, conversationSection, joinSections, memorySection, peopleSection, personaSection, sharedHistorySection, situationSection } from '../prompts'
 import type { TaskSpec } from '../task'
@@ -22,7 +23,7 @@ import {
   stripEmoji,
 } from '../validate'
 
-export type DialogueMode = 'reply' | 'start_topic' | 'greeting' | 'newcomer_greeting' | 'open_private' | 'wrap_up' | 'follow_up'
+export type DialogueMode = 'reply' | 'start_topic' | 'greeting' | 'newcomer_greeting' | 'open_private' | 'wrap_up' | 'follow_up' | 'propose_casual'
 
 export interface DialogueInput {
   speakerId: ParticipantId
@@ -30,6 +31,8 @@ export interface DialogueInput {
   mode: DialogueMode
   /** 1:1(사람 수 2)인지. 길이 상한이 달라진다. */
   isPrivate: boolean
+  /** propose_casual일 때: 누구에게 어떤 말 놓기를 제안하는지(game-rules.md §11.3). 서버가 조건을 판정해서 준다. */
+  speechOffer?: { targetId: ParticipantId; kind: SpeechProposalKind }
 }
 
 export interface DialogueOutput {
@@ -43,11 +46,30 @@ const INSTRUCTIONS: Record<DialogueMode, string> = {
   greeting: '방금 숙소 거실에 처음 들어왔다. 먼저 와 있던 사람들에게 짧게 인사하고 이름을 말해라. 나이나 직업은 아직 말하지 않는다.',
   newcomer_greeting: '둘째 날 새 입주자로 숙소 거실에 들어왔다. 먼저 와 있던 사람들에게 인사하고 이름, 나이, 직업을 짧게 소개해라.',
   open_private: '단둘이 이야기할 시간이 생겼다. 상대에게 먼저 가볍게 말을 건다. 상대에 대해 궁금했던 것이나 아까 나눈 이야기를 한 문장으로 꺼낸다. 하루를 정리하는 긴 소감은 말하지 않는다.',
+  propose_casual: '이 사람과 이야기가 꽤 편해졌다.',
   wrap_up: '대화 시간이 곧 끝난다. 새 화제를 꺼내지 말고 자연스럽게 마무리하는 말을 해라.',
 }
 
 /** 소형 모델이 돌려 쓰는 상투적 표현(감지용, 실측). 최근 대화에 여러 번 나왔는데 또 쓰면 다시 쓰게 한다. */
 const STOCK_PHRASES = ['오늘 하루', '편안하', '분위기', '시간이 빨리', '기억에 남', '다행']
+
+/**
+ * 말 놓기 제안의 상황 설명(game-rules.md §11.3). 무엇을 제안하는지만 알리고 문구는 주지 않는다(qa-rules.md 1.2).
+ * 제안 자체는 아직 존댓말로 한다.
+ */
+function offerNote(view: ObservationView, i: DialogueInput): string {
+  const offer = i.speechOffer
+  if (i.mode !== 'propose_casual' || !offer) return ''
+  const name = view.label(offer.targetId)
+  const age = ageRelation(view.self().cast.age, view.known(offer.targetId).age) ?? ''
+  const what =
+    offer.kind === 'mutual'
+      ? '서로 말을 편하게 하자고 제안한다'
+      : offer.kind === 'ask'
+        ? '네가 말을 편하게 해도 되는지 조심스럽게 묻는다'
+        : '상대에게 너한테는 편하게 말을 놓으라고 권한다'
+  return ` 상대: ${name}(${age}). 지금 ${what}. 그 말 한 마디만 하고, 아직은 존댓말로 말한다.`
+}
 
 function metooCount(texts: readonly string[]): number {
   return texts.filter((t) => /^\s*저도/.test(t)).length
@@ -88,7 +110,7 @@ export const dialogueTask: TaskSpec<DialogueInput, { action: 'speak' | 'silent';
     return hints.length > 0 ? hints.join(' ') : null
   },
   schema: (i) => {
-    const mustSpeak = i.mode === 'greeting' || i.mode === 'newcomer_greeting' || i.mode === 'open_private'
+    const mustSpeak = i.mode === 'greeting' || i.mode === 'newcomer_greeting' || i.mode === 'open_private' || i.mode === 'propose_casual'
     return z.object({
       action: mustSpeak ? z.literal('speak') : z.enum(['speak', 'silent']),
       text: z.string().max(240),
@@ -98,7 +120,7 @@ export const dialogueTask: TaskSpec<DialogueInput, { action: 'speak' | 'silent';
     const view = new ObservationView(ctx.state, i.speakerId, ctx.config)
     const others = view.presentOthers(i.roomId)
     const maxChars = i.isPrivate ? ctx.config.validation.maxChars.private : ctx.config.validation.maxChars.group
-    const firstMeeting = others.length > 0 && others.every((id) => view.speechLevel(id) === 'polite')
+    const firstMeeting = others.length > 0 && others.every((id) => view.speechLevel(id) === 'polite' && view.speechLevelFrom(id) === 'polite')
     // 처음 만난 사이에 취미·주말 같은 질문을 갑자기 던지는 경우가 많았다(실측). 자리에 맞는 화제를 알려 준다.
     const meetingHint = !firstMeeting
       ? ''
@@ -134,7 +156,7 @@ export const dialogueTask: TaskSpec<DialogueInput, { action: 'speak' | 'silent';
       sharedHistorySection(view),
       memorySection(view, ctx, others),
       conversationSection(view, ctx, i.roomId),
-      `[지금 할 일]\n${INSTRUCTIONS[i.mode]}${meetingHint}${topicHint}${stockHint}${metooHint}${placeHint}`,
+      `[지금 할 일]\n${INSTRUCTIONS[i.mode]}${offerNote(view, i)}${i.mode === 'propose_casual' ? '' : `${meetingHint}${topicHint}${stockHint}${metooHint}${placeHint}`}`,
     )
     const self = view.self().cast
     return { system, user, view, meta: { mode: i.mode, speakerName: self.name, roomId: i.roomId } }
@@ -145,7 +167,8 @@ export const dialogueTask: TaskSpec<DialogueInput, { action: 'speak' | 'silent';
     const cast = ctx.state.participants.get(i.speakerId)?.cast
     const speakerName = cast?.name ?? ''
     const maxChars = i.isPrivate ? ctx.config.validation.maxChars.private : ctx.config.validation.maxChars.group
-    const mustBePolite = view.presentOthers(i.roomId).every((id) => view.speechLevel(id) === 'polite')
+    // 존댓말을 쓰는 상대가 한 명이라도 있으면 존댓말이어야 한다(game-rules.md §11.6). 서로 놓자는 제안에 받아들이며 하는 첫 반말은 응답 작업이 따로 다룬다.
+    const mustBePolite = view.presentOthers(i.roomId).some((id) => view.speechLevel(id) === 'polite')
     const knownNames = [...view.knownNames()]
       .filter((id) => id !== i.speakerId)
       .map((id) => view.known(id).name)

@@ -7,7 +7,9 @@ import {
   stageIdSchema,
   voteKindSchema,
   MEMORY_KINDS,
+  SPEECH_ANSWERS,
   SPEECH_LEVELS,
+  SPEECH_PROPOSAL_KINDS,
 } from './domain'
 
 export const EVENT_SCHEMA_VERSION = 1
@@ -94,7 +96,13 @@ export const eventPayloadSchemas = {
     reason: z.string(),
     evidenceSeqs: z.array(z.number().int()),
   }),
+  /** 옛 회차 호환용(대칭). 새 코드는 SPEECH_LEVEL_SET을 쓴다(D38). */
   SPEECH_LEVEL_CHANGED: z.object({ aId: z.string(), bId: z.string(), level: z.enum(SPEECH_LEVELS) }),
+  /** 말 놓기 제안(game-rules.md §11). 그 방에 있던 사람이 안다. */
+  SPEECH_PROPOSED: z.object({ proposalId: z.string(), roomId: z.string(), fromId: z.string(), toId: z.string(), kind: z.enum(SPEECH_PROPOSAL_KINDS) }),
+  SPEECH_ANSWERED: z.object({ proposalId: z.string(), roomId: z.string(), fromId: z.string(), toId: z.string(), answer: z.enum(SPEECH_ANSWERS) }),
+  /** 방향 있는 말투 변경: fromId가 toId에게 쓰는 말투. 두 당사자만 안다. */
+  SPEECH_LEVEL_SET: z.object({ fromId: z.string(), toId: z.string(), level: z.enum(SPEECH_LEVELS) }),
   LLM_OUTPUT_REJECTED: z.object({ task: z.string(), ownerId: z.string().nullable(), reasons: z.array(z.string()) }),
   RUN_PAUSED: z.object({ reason: z.string() }),
   RUN_RESUMED: z.object({}),

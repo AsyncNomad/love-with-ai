@@ -6,7 +6,7 @@ import {
   getRelationship,
   knownNameIds,
   knownProfile,
-  pairKey,
+  speechLevelOf,
   type KnownProfile,
   type MemoryRecord,
   type ParticipantRecord,
@@ -259,8 +259,14 @@ export class ObservationView {
     return r
   }
 
+  /** 내가 이 사람에게 쓰는 말투(방향 있음, D38). */
   speechLevel(targetId: ParticipantId): SpeechLevel {
-    return this.state.speechLevels.get(pairKey(this.ownerId, targetId)) ?? 'polite'
+    return speechLevelOf(this.state, this.ownerId, targetId)
+  }
+
+  /** 이 사람이 나에게 쓰는 말투. */
+  speechLevelFrom(targetId: ParticipantId): SpeechLevel {
+    return speechLevelOf(this.state, targetId, this.ownerId)
   }
 
   /** 본인이 이전 투표에서 고른 대상(본인만 안다). */

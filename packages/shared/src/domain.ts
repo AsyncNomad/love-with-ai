@@ -179,6 +179,14 @@ export type CastParticipant = z.infer<typeof castParticipantSchema>
 export const SPEECH_LEVELS = ['polite', 'casual'] as const
 export type SpeechLevel = (typeof SPEECH_LEVELS)[number]
 
+/** 말 놓기 제안의 종류(game-rules.md §11.3). mutual: 서로 놓자, ask: 제안자만 놓아도 되는지, grant: 상대에게 놓으라고. */
+export const SPEECH_PROPOSAL_KINDS = ['mutual', 'ask', 'grant'] as const
+export type SpeechProposalKind = (typeof SPEECH_PROPOSAL_KINDS)[number]
+
+/** 말 놓기 제안에 대한 응답(§11.4). none: 대답을 듣지 못했거나 판정이 불확실하다(아무것도 바뀌지 않는다). */
+export const SPEECH_ANSWERS = ['accept', 'you_only', 'decline', 'none'] as const
+export type SpeechAnswer = (typeof SPEECH_ANSWERS)[number]
+
 export const MEMORY_KINDS = ['summary', 'impression', 'choice'] as const
 export type MemoryKind = (typeof MEMORY_KINDS)[number]
 

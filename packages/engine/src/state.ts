@@ -8,7 +8,9 @@ import type {
   PersonaFlavor,
   RoomId,
   RoomKind,
+  SpeechAnswer,
   SpeechLevel,
+  SpeechProposalKind,
   StageId,
   VoteKind,
 } from '@heart/shared'
@@ -74,6 +76,15 @@ export interface MemoryRecord {
   sourceSeqs: number[]
 }
 
+export interface SpeechProposalRecord {
+  proposalId: string
+  fromId: ParticipantId
+  toId: ParticipantId
+  kind: SpeechProposalKind
+  seq: number
+  answer: SpeechAnswer | null
+}
+
 export type RunStatus = 'casting' | 'running' | 'paused' | 'completed'
 
 export interface RunState {
@@ -93,7 +104,10 @@ export interface RunState {
   rooms: Map<RoomId, RoomRecord>
   votes: Map<string, VoteRecord>
   relationships: Map<string, RelationshipState>
+  /** 방향 있는 말투: directedKey(from, to) → from이 to에게 쓰는 말투. 없으면 존댓말(D38). */
   speechLevels: Map<string, SpeechLevel>
+  /** 말 놓기 제안 기록: pairKey → 제안. 한 쌍에 한 번만 제안한다(game-rules.md §11.2). */
+  speechProposals: Map<string, SpeechProposalRecord>
   memories: MemoryRecord[]
   /** 쌍(정렬된 키)별 상호작용 가중치 합. 노출량 계산에 쓴다(design.md §10.2). */
   interaction: Map<string, number>
@@ -119,6 +133,7 @@ export function createRunState(runId: string): RunState {
     votes: new Map(),
     relationships: new Map(),
     speechLevels: new Map(),
+    speechProposals: new Map(),
     memories: [],
     interaction: new Map(),
     idempotencyKeys: new Map(),
@@ -286,8 +301,28 @@ export function applyEvent(state: RunState, event: AnyEvent, opts: FoldOptions):
       break
     }
     case 'SPEECH_LEVEL_CHANGED':
-      state.speechLevels.set(pairKey(event.payload.aId, event.payload.bId), event.payload.level)
+      // 옛 회차(대칭 말투) 호환: 양방향 모두 바꾼다.
+      state.speechLevels.set(directedKey(event.payload.aId, event.payload.bId), event.payload.level)
+      state.speechLevels.set(directedKey(event.payload.bId, event.payload.aId), event.payload.level)
       break
+    case 'SPEECH_LEVEL_SET':
+      state.speechLevels.set(directedKey(event.payload.fromId, event.payload.toId), event.payload.level)
+      break
+    case 'SPEECH_PROPOSED':
+      state.speechProposals.set(pairKey(event.payload.fromId, event.payload.toId), {
+        proposalId: event.payload.proposalId,
+        fromId: event.payload.fromId,
+        toId: event.payload.toId,
+        kind: event.payload.kind,
+        seq: event.seq,
+        answer: null,
+      })
+      break
+    case 'SPEECH_ANSWERED': {
+      const p = state.speechProposals.get(pairKey(event.payload.fromId, event.payload.toId))
+      if (p && p.proposalId === event.payload.proposalId) p.answer = event.payload.answer
+      break
+    }
     case 'RUN_PAUSED':
       state.status = 'paused'
       state.pauseReason = event.payload.reason

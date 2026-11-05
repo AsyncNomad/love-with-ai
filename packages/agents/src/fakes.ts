@@ -51,6 +51,7 @@ export const fakeResponders: Record<string, FakeResponder> = {
     if (mode === 'newcomer_greeting') return { action: 'speak', text: `안녕하세요! 오늘 새로 들어온 ${givenName(name)}예요. 잘 부탁드려요` }
     if (mode === 'open_private') return { action: 'speak', text: rng.pick(PRIVATE_OPEN) }
     if (mode === 'wrap_up') return { action: 'speak', text: rng.pick(WRAP) }
+    if (mode === 'propose_casual') return { action: 'speak', text: '우리 이제 좀 편하게 이야기할까요?' }
     if (mode !== 'start_topic' && rng.chance(0.12)) return { action: 'silent', text: '' }
     return { action: 'speak', text: rng.pick(LINES) }
   },
@@ -77,7 +78,6 @@ export const fakeResponders: Record<string, FakeResponder> = {
         curiosity: u(),
         significant: false,
         impression: `${name}은(는) 대화가 무난했다.`,
-        casual: rng.chance(0.05),
       })),
     }
   },
@@ -94,6 +94,17 @@ export const fakeResponders: Record<string, FakeResponder> = {
     return { target: rng.pick(options), question: rng.pick(QUESTIONS) }
   },
   mailbox_answer: (_req, rng) => ({ text: rng.pick(ANSWERS) }),
+  speech_response: (req, rng) => {
+    const options = enumAt(req.jsonSchema, ['properties', 'answer'])
+    const answer = rng.pick(options)
+    return { answer, text: answer === 'decline' ? '아직은 존댓말이 편해요' : '좋아요, 그렇게 해요' }
+  },
+  human_speech: (req) => {
+    if (req.meta.mode === 'answer') return { answer: 'accept' }
+    const said = req.messages.at(-1)?.content ?? ''
+    const target = enumAt(req.jsonSchema, ['properties', 'target'])[1]
+    return said.includes('편하게') && target ? { target, kind: 'mutual' } : { target: '없음', kind: 'none' }
+  },
   memory_summary: () => ({ summary: '오늘은 여러 사람과 이야기했다. 아직 누가 잘 맞는지는 모르겠다.' }),
   persona_profile: (req) => ({
     background: `${req.meta.name ?? ''}은(는) 평범한 직장 생활 속에서 취미를 찾았다.`,

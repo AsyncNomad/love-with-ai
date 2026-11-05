@@ -78,6 +78,12 @@ export function auditRun(events: readonly AnyEvent[], deliveries: readonly Deliv
       const v = e.visibility
       if (v.kind !== 'participants' || v.ids.length !== 1 || v.ids[0] !== owner) out.push({ rule: 'private_visibility', detail: `${e.type} #${e.seq} is visible beyond its owner` })
     }
+    // 말투 상태는 두 당사자만 안다(game-rules.md §11.1).
+    if (e.type === 'SPEECH_LEVEL_SET') {
+      const v = e.visibility
+      const ok = v.kind === 'participants' && v.ids.length === 2 && v.ids.includes(e.payload.fromId) && v.ids.includes(e.payload.toId)
+      if (!ok) out.push({ rule: 'private_visibility', detail: `speech level #${e.seq} is visible beyond the pair` })
+    }
     if (e.type === 'MAILBOX_QUESTION') {
       const v = e.visibility
       const ok = v.kind === 'participants' && v.ids.length === 2 && v.ids.includes(e.payload.askerId) && v.ids.includes(e.payload.targetId)

@@ -106,6 +106,22 @@ export interface RelationshipConfig {
   compatHintMinExposure: number
 }
 
+/** 말 놓기(game-rules.md §11). */
+export interface SpeechConfig {
+  /** 제안자가 이만큼까지 연상이면 서로 놓기(mutual)를 제안한다. 더 많으면 자기만 놓기(ask). */
+  mutualMaxGap: number
+  /** 두 사람의 상호작용 노출량(0~1) 하한 */
+  minExposure: number
+  /** 제안자가 상대에게 느끼는 편안함 하한 */
+  minComfort: number
+  /** 조건이 맞을 때 AI 발언 뒤마다 제안할 확률 */
+  proposeChance: number
+  /** 1:1이면 확률을 이만큼 곱한다 */
+  privateMultiplier: number
+  /** 장면에서 이만큼 말이 오간 뒤부터 제안한다 */
+  minSceneMessages: number
+}
+
 export interface ValidationConfig {
   maxChars: { group: number; private: number; intro: number; card: number; mailbox: number }
   impersonationPatterns: string[]
@@ -179,4 +195,5 @@ export interface GameConfig {
   pools: CastingPools
   image: ImageConfig
   events: EventsConfig
+  speech: SpeechConfig
 }

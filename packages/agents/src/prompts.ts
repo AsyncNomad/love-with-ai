@@ -1,5 +1,5 @@
 import type { ParticipantId, RoomId } from '@heart/shared'
-import { compatHint } from '@heart/engine'
+import { ageRelation, compatHint } from '@heart/engine'
 import type { ObservationView } from './observation'
 import { renderPersona, relationshipDetail } from './persona-text'
 import type { TaskContext } from './task'
@@ -51,9 +51,10 @@ function speechNote(view: ObservationView, roomId: RoomId): string {
   const others = view.presentOthers(roomId)
   if (others.length === 0) return ''
   const casual = others.filter((id) => view.speechLevel(id) === 'casual')
-  if (casual.length === 0) return '\n말투: 여기 있는 사람 모두와 아직 존댓말을 쓰는 사이다'
-  if (casual.length === others.length) return '\n말투: 여기 있는 사람 모두와 말을 놓은 사이다'
-  return `\n말투: ${casual.map((id) => view.label(id)).join(', ')}와는 말을 놓았고, 나머지와는 존댓말을 쓰는 사이다. 여럿이 있을 때는 존댓말로 한다`
+  if (casual.length === 0) return '\n말투: 여기 있는 사람 모두에게 아직 존댓말을 쓰는 사이다'
+  if (casual.length === others.length) return '\n말투: 여기 있는 사람 모두에게 말을 놓은 사이다'
+  // 존댓말 상대가 한 명이라도 있으면 모두에게 하는 말은 존댓말이다(game-rules.md §11.6).
+  return `\n말투: ${casual.map((id) => view.label(id)).join(', ')}에게는 말을 놓았지만, 존댓말을 쓰는 사람도 함께 있어서 모두에게 하는 말은 존댓말로 한다`
 }
 
 /**
@@ -75,10 +76,14 @@ export function peopleSection(view: ObservationView, ctx: TaskContext, ids: read
   for (const id of ids) {
     const k = view.known(id)
     if (k.name === null) continue
-    const facts = [k.age !== null ? `${k.age}세` : null, k.occupation].filter(Boolean).join(', ')
+    const age = ageRelation(view.self().cast.age, k.age)
+    const facts = [k.age !== null ? `${k.age}세` : null, age, k.occupation].filter(Boolean).join(', ')
     const rel = relationshipDetail(view.relationship(id), compatHint(ctx.state, view.ownerId, id, ctx.config.relationship), ctx.config.relationship)
-    const speech = view.speechLevel(id) === 'casual' ? '반말' : '존댓말'
-    const line = `- ${k.name}${facts ? ` (${facts})` : ''}: ${speech}을 쓴다. 느낌: ${rel}.`
+    // 말투는 방향이 있다(D38). 서로 다를 수 있으니 둘 다 적는다.
+    const mine = view.speechLevel(id) === 'casual' ? '반말' : '존댓말'
+    const theirs = view.speechLevelFrom(id) === 'casual' ? '반말' : '존댓말'
+    const speech = mine === theirs ? `서로 ${mine}을 쓴다` : `나는 ${mine}, 이 사람은 나에게 ${theirs}을 쓴다`
+    const line = `- ${k.name}${facts ? ` (${facts})` : ''}: ${speech}. 느낌: ${rel}.`
     if (used + line.length > ctx.config.llm.budgets.relationships) break
     used += line.length
     lines.push(line)

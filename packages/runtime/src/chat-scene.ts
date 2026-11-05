@@ -1,10 +1,11 @@
 import { dropEchoedSentences, type DialogueMode } from '@heart/agents'
 import type { AnyEvent, GameConfig, ParticipantId, RoomId } from '@heart/shared'
-import { findMentions, getRelationship, matchesInterest, pickSpeakers, type Rng, type SpeakerFeatures } from '@heart/engine'
+import { findMentions, getRelationship, matchesInterest, pairKey, pickSpeakers, type Rng, type SpeakerFeatures } from '@heart/engine'
 import type { AgentService } from './agent-service'
 import { Priority } from './gpu-queue'
 import type { House } from './house'
 import type { GameSession } from './session'
+import { mayConcernSpeech, type SpeechEtiquette, type SpeechPick } from './speech-etiquette'
 import type { Countdown, GameClock } from './timers'
 
 /** 장면이 반응하는 PD 안내 키. 브런치·활동 방의 상황 카드다(game-rules.md §5.2). */
@@ -17,6 +18,7 @@ export interface SceneDeps {
   clock: GameClock
   rng: Rng
   typing: (roomId: RoomId, participantIds: ParticipantId[]) => void
+  speech: SpeechEtiquette
 }
 
 export interface SceneOptions {
@@ -56,6 +58,10 @@ export class ChatScene {
   private utterances = 0
   /** 이 장면에서 지금까지 나온 메시지 수(recent는 최근 30개만 들고 있다). */
   private messageCount = 0
+  /** 한 장면에서는 말 놓기를 한 번만 제안한다(game-rules.md §11.2). */
+  private proposedInScene = false
+  /** AI가 사람에게 한 말 놓기 제안. 사람의 다음 말로 대답을 판정한다. */
+  private pendingHumanAnswer: { proposalId: string; proposerId: ParticipantId; kind: SpeechPick['kind'] } | null = null
   private silentStreak = 0
   private idle: Countdown | null = null
   private idleToken = 0
@@ -143,6 +149,12 @@ export class ChatScene {
     for (const f of this.inFlight.values()) f.controller.abort()
     this.unsub?.()
     this.unsub = null
+    // 대답을 듣지 못한 제안은 "대답 없음"으로 닫는다. 같은 쌍에서 다시 제안하지 않는다.
+    if (this.pendingHumanAnswer && this.humanId) {
+      const p = this.pendingHumanAnswer
+      this.pendingHumanAnswer = null
+      this.deps.speech.answer(this.roomId, p.proposalId, p.proposerId, this.humanId, p.kind, 'none')
+    }
     this.typingIds.clear()
     this.deps.typing(this.roomId, [])
     this.resolveDone()
@@ -168,7 +180,7 @@ export class ChatScene {
 
     if (speaker === this.humanId) {
       this.spokeSinceHuman.clear()
-      this.onHumanMessage(e.seq)
+      this.onHumanMessage(e.seq, e.payload.text)
     } else {
       this.spokeSinceHuman.add(speaker)
       this.onAiMessage(speaker)
@@ -176,10 +188,26 @@ export class ChatScene {
     if (!this.isBackground) this.armIdle()
   }
 
-  private onHumanMessage(seq: number): void {
+  private onHumanMessage(seq: number, text: string): void {
     this.lastHumanSeq = seq
     this.chainBudget = this.config.scheduler.maxChainAfterHuman
     for (const f of this.inFlight.values()) if (!f.replyToHuman) f.controller.abort()
+    if (!this.accepting) return
+    // AI가 말 놓기를 제안한 뒤 사람이 처음 한 말을 대답으로 읽는다. 대화는 평소처럼 이어진다.
+    if (this.pendingHumanAnswer && this.humanId) {
+      const p = this.pendingHumanAnswer
+      const human = this.humanId
+      this.pendingHumanAnswer = null
+      void this.deps.agents.judgeHumanAnswer(text, p.proposerId, p.kind).then((answer) => this.deps.speech.answer(this.roomId, p.proposalId, p.proposerId, human, p.kind, answer))
+    } else if (mayConcernSpeech(text)) {
+      // 사람이 말 놓기를 제안했을 수 있다. 판정이 끝날 때까지 답할 사람을 고르지 않는다(제안 받은 사람이 대답하게).
+      void this.handleHumanOffer(text)
+      return
+    }
+    this.replyToHuman()
+  }
+
+  private replyToHuman(): void {
     if (!this.accepting) return
     const max = this.isPrivate ? 1 : this.config.scheduler.maxRespondersToHuman
     const k = Math.min(max, this.deps.rng.chance(0.55) ? 1 : 2)
@@ -205,10 +233,12 @@ export class ChatScene {
         this.stop()
         return
       }
+      if (this.maybeProposeCasual(Priority.P4_BACKGROUND)) return
       const next = this.choose(1, speaker)[0]
       if (next) this.request(next, 'reply', Priority.P4_BACKGROUND, false)
       return
     }
+    if (this.maybeProposeCasual(Priority.P1_SCENE)) return
     if (this.chainBudget > 0 && this.deps.rng.chance(this.config.scheduler.followUpChance)) {
       const next = this.choose(1, speaker, this.spokeSinceHuman)[0]
       if (next) {
@@ -216,6 +246,53 @@ export class ChatScene {
         this.request(next, 'follow_up', Priority.P1_SCENE, false)
       }
     }
+  }
+
+  /** 조건이 맞으면 이 장면에서 한 번, 말 놓기를 제안하게 한다(game-rules.md §11.2). 제안했으면 true. */
+  private maybeProposeCasual(priority: number): boolean {
+    if (this.proposedInScene || this.messageCount < this.config.speech.minSceneMessages) return false
+    const pick = this.deps.speech.pick(this.deps.house.members(this.roomId), this.humanId, this.isPrivate, this.deps.rng)
+    if (!pick || this.inFlight.has(pick.proposerId)) return false
+    this.proposedInScene = true
+    this.request(pick.proposerId, 'propose_casual', priority, false, pick)
+    return true
+  }
+
+  /** 제안하는 말이 나온 뒤: 제안을 남기고, 상대가 AI면 바로 대답하게 하고, 사람이면 다음 말을 기다린다. */
+  private async afterProposal(pick: SpeechPick): Promise<void> {
+    const { speech, agents } = this.deps
+    const proposalId = speech.propose(this.roomId, pick.proposerId, pick.targetId, pick.kind)
+    if (pick.targetId === this.humanId) {
+      this.pendingHumanAnswer = { proposalId, proposerId: pick.proposerId, kind: pick.kind }
+      return
+    }
+    const res = await agents.speechResponse(pick.targetId, pick.proposerId, pick.kind, this.roomId, this.isBackground ? Priority.P4_BACKGROUND : Priority.P1_SCENE)
+    const spoke = res !== null && this.active && (await this.sayAfterTyping(pick.targetId, res.text))
+    speech.answer(this.roomId, proposalId, pick.proposerId, pick.targetId, pick.kind, spoke && res ? res.answer : 'none')
+  }
+
+  /** 사람이 말 놓기를 제안했는지 판정하고, 제안이면 받은 AI가 대답한다. 아니면 평소처럼 답한다. */
+  private async handleHumanOffer(text: string): Promise<void> {
+    const human = this.humanId
+    const ais = this.deps.house.members(this.roomId).filter((id) => id !== human)
+    const offer = human ? await this.deps.agents.judgeHumanOffer(text, ais) : null
+    if (!this.active) return
+    if (!offer || !human || this.deps.session.state.speechProposals.has(pairKey(human, offer.targetId))) {
+      this.replyToHuman()
+      return
+    }
+    const proposalId = this.deps.speech.propose(this.roomId, human, offer.targetId, offer.offer)
+    const res = await this.deps.agents.speechResponse(offer.targetId, human, offer.offer, this.roomId, Priority.P0_HUMAN_WAITING)
+    const spoke = res !== null && this.active && (await this.sayAfterTyping(offer.targetId, res.text))
+    this.deps.speech.answer(this.roomId, proposalId, human, offer.targetId, offer.offer, spoke && res ? res.answer : 'none')
+  }
+
+  private async sayAfterTyping(speakerId: ParticipantId, text: string): Promise<boolean> {
+    const t = this.config.timing.typing
+    this.setTyping(speakerId, true)
+    await this.deps.clock.wait(Math.min(t.maxMs, t.baseMs + t.perCharMs * text.length)).promise
+    this.setTyping(speakerId, false)
+    return this.active && this.deps.house.say(this.roomId, speakerId, text, this.isBackground)
   }
 
   private choose(k: number, exclude?: ParticipantId, alsoExclude?: ReadonlySet<ParticipantId>): ParticipantId[] {
@@ -247,27 +324,28 @@ export class ChatScene {
     return pickSpeakers(candidates, k, this.deps.rng, sc.weights, sc.maxConsecutive)
   }
 
-  private request(speakerId: ParticipantId, mode: DialogueMode, priority: number, replyToHuman: boolean): void {
+  private request(speakerId: ParticipantId, mode: DialogueMode, priority: number, replyToHuman: boolean, offer?: SpeechPick): void {
     if (!this.accepting || this.inFlight.has(speakerId)) return
     if (this.inFlight.size >= this.config.scheduler.maxInFlightPerScene) return
     const entry: InFlight = { controller: new AbortController(), replyToHuman }
     this.inFlight.set(speakerId, entry)
     let useMode = mode
-    if (this.wrapUpPending && mode !== 'greeting') {
+    if (this.wrapUpPending && mode !== 'greeting' && mode !== 'propose_casual') {
       this.wrapUpPending = false
       useMode = 'wrap_up'
     }
-    void this.generate(speakerId, useMode, priority, entry, this.lastHumanSeq)
+    void this.generate(speakerId, useMode, priority, entry, this.lastHumanSeq, useMode === 'propose_casual' ? offer : undefined)
   }
 
-  private async generate(speakerId: ParticipantId, mode: DialogueMode, priority: number, entry: InFlight, seenHumanSeq: number): Promise<void> {
+  private async generate(speakerId: ParticipantId, mode: DialogueMode, priority: number, entry: InFlight, seenHumanSeq: number, offer?: SpeechPick): Promise<void> {
     const { clock, agents, house } = this.deps
     const timing = this.config.timing
     let spoke = false
     try {
       const started = clock.now()
       const countAtStart = this.messageCount
-      const generated = await agents.speak({ speakerId, roomId: this.roomId, mode, isPrivate: this.isPrivate }, priority, entry.controller.signal, () =>
+      const speechOffer = offer ? { targetId: offer.targetId, kind: offer.kind } : undefined
+      const generated = await agents.speak({ speakerId, roomId: this.roomId, mode, isPrivate: this.isPrivate, ...(speechOffer ? { speechOffer } : {}) }, priority, entry.controller.signal, () =>
         this.setTyping(speakerId, true),
       )
       if (generated === null || this.isStale(entry, seenHumanSeq)) return
@@ -282,6 +360,7 @@ export class ChatScene {
       if (delay > 0) await clock.wait(delay).promise
       if (this.isStale(entry, seenHumanSeq)) return
       spoke = house.say(this.roomId, speakerId, text, this.isBackground)
+      if (spoke && offer) void this.afterProposal(offer)
     } finally {
       if (this.inFlight.get(speakerId) === entry) this.inFlight.delete(speakerId)
       this.setTyping(speakerId, false)
