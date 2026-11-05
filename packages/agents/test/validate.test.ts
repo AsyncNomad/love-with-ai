@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { defaultConfig } from '@heart/config'
-import { asQuestion, checkDialogue, dropDayOverSentences, dropEchoedSentences, dropMirroredSentences, hasSelfHonorific, hasEmoji, stripEmoji, fitLength, fixAddress, hasCasualWord, hasEnglishWord, hasForeignScript, isCasual, isPolite, isRepeat, limitLaughter, normalizeUtterance, similarity } from '../src'
+import { asQuestion, checkDialogue, hasBareNameAddress, hasParticleError, dropDayOverSentences, dropEchoedSentences, dropMirroredSentences, hasSelfHonorific, hasEmoji, stripEmoji, fitLength, fixAddress, hasCasualWord, hasEnglishWord, hasForeignScript, isCasual, isPolite, isRepeat, limitLaughter, normalizeUtterance, similarity } from '../src'
 
 const cfg = defaultConfig.validation
 const base = { speakerName: '정하린', maxChars: 80, unknownNames: [] as string[], recentOwn: [] as string[] }
@@ -126,14 +126,14 @@ describe('natural Korean address and speech level (from real-model play)', () =>
     expect(hasEnglishWord('jay 씨도 오셨네요', ['jay'])).toBe(false)
     expect(checkDialogue({ ...base, text: '많은 people 만나요' }, cfg)).toContain('foreign_script')
   })
-  it('drops a leading bare-name vocative and adds 씨 to a bare name mid-sentence', () => {
-    expect(fixAddress('수아, 주말엔 주로 필라테스 해요.', names, true)).toBe('주말엔 주로 필라테스 해요.')
-    expect(fixAddress('우진 씨, 저도 그래요.', names, true)).toBe('저도 그래요.')
-    expect(fixAddress('안녕하세요, 우진! 반가워요.', names, true)).toBe('안녕하세요, 우진 씨! 반가워요.')
-    expect(fixAddress('반가워요, Jay.', names, true)).toBe('반가워요, Jay 씨.')
-    expect(fixAddress('수아 씨는 주말에 뭐 하세요?', names, true)).toBe('수아 씨는 주말에 뭐 하세요?')
-    expect(fixAddress('저는 김우진이에요.', names, true)).toBe('저는 김우진이에요.')
-    expect(fixAddress('안녕하세요, 우진!', names, false)).toBe('안녕하세요, 우진!')
+  it('drops a leading vocative and detects a bare name mid-sentence (no insertion, qa-rules 1.3)', () => {
+    expect(fixAddress('수아, 주말엔 주로 필라테스 해요.', names)).toBe('주말엔 주로 필라테스 해요.')
+    expect(fixAddress('우진 씨, 저도 그래요.', names)).toBe('저도 그래요.')
+    expect(fixAddress('안녕하세요, 우진! 반가워요.', names)).toBe('안녕하세요, 우진! 반가워요.')
+    expect(hasBareNameAddress('안녕하세요, 우진! 반가워요.', names)).toBe(true)
+    expect(hasBareNameAddress('반가워요, Jay.', names)).toBe(true)
+    expect(hasBareNameAddress('수아 씨는 주말에 뭐 하세요?', names)).toBe(false)
+    expect(hasBareNameAddress('저는 김우진이에요.', names)).toBe(false)
   })
 })
 
@@ -145,9 +145,11 @@ describe('echo and grammar (from the 3-day real-model run)', () => {
     expect(dropEchoedSentences('그건 처음 들어 보네요.', ['저는 주말에 한강에서 자주 뛰어요'])).toBe('그건 처음 들어 보네요.')
     expect(dropEchoedSentences('그럼 반말로 지내보는 건 어떨까요.', ['그럼 반말로 지내보는 건 어떨까요.'])).toBe('')
   })
-  it('fixes common first-person particle mistakes', () => {
-    expect(normalizeUtterance('저가 베이킹 하는 걸 좋아해요', '정하린')).toBe('제가 베이킹 하는 걸 좋아해요')
-    expect(normalizeUtterance('그건 제가도 좋아하는 것 같아요', '정하린')).toBe('그건 저도 좋아하는 것 같아요')
+  it('detects common first-person particle mistakes instead of rewriting them', () => {
+    expect(hasParticleError('저가 베이킹 하는 걸 좋아해요')).toBe(true)
+    expect(hasParticleError('그건 제가도 좋아하는 것 같아요')).toBe(true)
+    expect(normalizeUtterance('저가 베이킹 하는 걸 좋아해요', '정하린')).toBe('저가 베이킹 하는 걸 좋아해요')
+    expect(hasParticleError('제가 베이킹을 좋아해요')).toBe(false)
   })
   it('treats a mid-message casual question as casual', () => {
     expect(isCasual('아, 그럼 주원 씨랑 뛸까? 음악 들으며 뛰는 게 좀 다르긴 하네요.')).toBe(true)
@@ -168,8 +170,8 @@ describe('second real-model run', () => {
 })
 
 describe('third real-model run', () => {
-  it('fixes 제가랑 and flags a mid-message casual 니?', () => {
-    expect(normalizeUtterance('그럼요, 제가랑은 좀 다르죠.', '정하린')).toBe('그럼요, 저랑은 좀 다르죠.')
+  it('detects 제가랑 and flags a mid-message casual 니?', () => {
+    expect(hasParticleError('그럼요, 제가랑은 좀 다르죠.')).toBe(true)
     expect(isCasual('음식이라니? 저는 디저트를 좋아해요.')).toBe(true)
   })
 })
@@ -183,7 +185,7 @@ describe('fifth real-model run', () => {
 
 describe('sixth real-model run', () => {
   it('drops a leading job-title address', () => {
-    expect(fixAddress('개발자님, 오늘 일로 지치셨나요?', ['김지수'], true)).toBe('오늘 일로 지치셨나요?')
+    expect(fixAddress('개발자님, 오늘 일로 지치셨나요?', ['김지수'])).toBe('오늘 일로 지치셨나요?')
   })
 })
 

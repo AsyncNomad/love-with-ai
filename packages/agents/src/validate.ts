@@ -16,6 +16,9 @@ export type IssueCode =
   | 'speech_level'
   | 'self_third_person'
   | 'self_honorific'
+  | 'grammar'
+  | 'address'
+  | 'stock_phrase'
 
 export interface DialogueCheckInput {
   text: string
@@ -37,12 +40,15 @@ export function normalizeUtterance(raw: string, speakerName: string): string {
   let text = unquote(raw)
   const m = SPEAKER_LABEL.exec(text)
   if (m && (m[1] === speakerName || m[1] === givenName(speakerName))) text = unquote(text.slice(m[0].length))
-  return fixGrammar(text.replace(/\s*\n+\s*/g, ' ').trim())
+  return text.replace(/\s*\n+\s*/g, ' ').trim()
 }
 
-/** 소형 모델이 자주 틀리는 1인칭 조사(실측: "저가 베이킹을…", "제가도 좋아해요"). */
-function fixGrammar(text: string): string {
-  return text.replace(/(^|[\s,])저가(?=\s)/g, '$1제가').replace(/제가도/g, '저도').replace(/제가랑/g, '저랑')
+/**
+ * 소형 모델이 자주 틀리는 1인칭 조사(실측: "저가 베이킹을…", "제가도 좋아해요", "제가랑은"). 고쳐 넣지 않고 감지만 한다.
+ * 서버가 낱말을 바꿔 넣으면 그 인물이 한 말이 아니게 된다(qa-rules.md 1.3). 걸리면 다시 쓰게 한다.
+ */
+export function hasParticleError(text: string): boolean {
+  return /(^|[\s,])저가(?=\s)|제가도|제가랑/.test(text)
 }
 
 /** 문장 단위로 나눈다(마침표·물음표·느낌표·물결 뒤 공백). */
@@ -158,17 +164,19 @@ export function hasCasualWord(text: string, knownNames: readonly string[] = []):
 
 const escapeRe = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
-/**
- * 번역투 호칭 정리. 소형 모델은 영어처럼 "수아, 주말엔 ~", "안녕하세요, 우진!"처럼 이름만 불러 말을 건다(실측).
- * 한국어 메신저에서는 이름을 아예 부르지 않거나 "수아 씨"라고 부른다.
- * - 메시지 맨 앞의 호칭("수아,", "우진!", "수아 씨,", "수아야,")은 지운다.
- * - 존댓말 사이에서 이름만 덩그러니 부르면("안녕하세요, 우진!") "씨"를 붙인다.
- */
-export function fixAddress(text: string, names: readonly string[], polite: boolean): string {
-  const forms = [...new Set(names.flatMap((n) => [n, givenName(n)]))]
+function nameForms(names: readonly string[]): string[] {
+  return [...new Set(names.flatMap((n) => [n, givenName(n)]))]
     .filter((f) => f.length > 0)
     .sort((a, b) => b.length - a.length)
     .map(escapeRe)
+}
+
+/**
+ * 번역투 호칭 정리. 소형 모델은 영어처럼 "수아, 주말엔 ~", "개발자님, ~"처럼 이름·호칭을 맨 앞에 불러 말을 건다(실측).
+ * 메시지 맨 앞의 호칭은 지운다(지우기만 하고 바꿔 넣지 않는다, qa-rules.md 1.3).
+ */
+export function fixAddress(text: string, names: readonly string[]): string {
+  const forms = nameForms(names)
   // 이름이 아닌 호칭("개발자님, ~")도 맨 앞이면 지운다(실측: 직업으로 불렀다).
   const titleLead = /^\s*[가-힣A-Za-z]{2,8}\s?님\s*[,!]\s*/
   if (forms.length === 0) return text.replace(titleLead, '').trim()
@@ -176,8 +184,14 @@ export function fixAddress(text: string, names: readonly string[], polite: boole
   const lead = new RegExp(String.raw`^\s*(?:${alt})(?:\s*(?:씨|님)|아|야)?\s*[,!~]+\s*`)
   let out = text
   for (let i = 0; i < 3 && (lead.test(out) || titleLead.test(out)); i++) out = out.replace(lead, '').replace(titleLead, '')
-  if (polite) out = out.replace(new RegExp(String.raw`(^|[\s,])(${alt})(?=\s*[,.!?~]|$)`, 'g'), '$1$2 씨')
   return out.trim()
+}
+
+/** 문장 중간에 이름만 덩그러니 부른 호칭("안녕하세요, 우진!")을 감지한다. 존댓말 사이에서 걸리면 다시 쓰게 한다. */
+export function hasBareNameAddress(text: string, names: readonly string[]): boolean {
+  const forms = nameForms(names)
+  if (forms.length === 0) return false
+  return new RegExp(String.raw`(^|[\s,])(${forms.join('|')})(?=\s*[,.!?~]|$)`).test(text)
 }
 
 /**

@@ -83,7 +83,7 @@ export const personaVoiceTask: TaskSpec<PersonaVoiceInput, PersonaVoice, Persona
     ].join(', ')
     return {
       system: SYSTEM,
-      user: `[정해진 사실]\n${structural(i.cast)}\n성향: ${i.profile.approach}\n말버릇 힌트: ${hints}\n\n[쓸 것] JSON으로만 답한다.\n- speechDescription: 이 사람의 메신저 말투를 설명하는 한 문장(어미, 말버릇, 리듬). 대사가 아니라 "~하는 말투"처럼 설명으로 쓴다.\n- exampleLines: 이 사람이 대화 중에 할 법한 말 5개. 순서대로 상대 말에 맞장구, 상대 말에 공감하며 자기 경험을 짧게 덧붙이는 말, 놀라거나 신기할 때 하는 말, 가벼운 농담, 쑥스럽거나 곤란할 때 하는 말. 인사말·자기소개·질문은 쓰지 않는다. 번호나 따옴표 없이 대사만 쓴다. 다른 사람 이름은 쓰지 않는다. 처음 만난 사이라 존댓말을 쓰고, 한국 사람이 실제로 쓰는 자연스러운 말투로 쓴다.`,
+      user: `[정해진 사실]\n${structural(i.cast)}\n성향: ${i.profile.approach}\n말버릇 힌트: ${hints}\n\n[쓸 것] JSON으로만 답한다.\n- speechDescription: 이 사람의 메신저 말투를 설명하는 한 문장(어미, 말버릇, 리듬). 대사가 아니라 말투를 설명하는 문장으로 쓴다.\n- exampleLines: 이 사람이 대화 중에 할 법한 말 5개. 순서대로 상대 말에 맞장구, 상대 말에 공감하며 자기 경험을 짧게 덧붙이는 말, 놀라거나 신기할 때 하는 말, 가벼운 농담, 쑥스럽거나 곤란할 때 하는 말. 인사말·자기소개·질문은 쓰지 않는다. 번호나 따옴표 없이 대사만 쓴다. 다른 사람 이름은 쓰지 않는다. 처음 만난 사이라 존댓말을 쓰고, 한국 사람이 실제로 쓰는 자연스러운 말투로 쓴다.`,
       view: null,
       meta: { name: i.cast.name },
     }

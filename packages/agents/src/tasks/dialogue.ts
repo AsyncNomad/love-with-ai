@@ -3,7 +3,21 @@ import type { ParticipantId, RoomId } from '@heart/shared'
 import { ObservationView } from '../observation'
 import { COMMON_RULES, conversationSection, joinSections, memorySection, peopleSection, personaSection, sharedHistorySection, situationSection } from '../prompts'
 import type { TaskSpec } from '../task'
-import { checkDialogue, dropDayOverSentences, dropEchoedSentences, dropMirroredSentences, fitLength, fixAddress, hasEmoji, hasSelfHonorific, limitLaughter, normalizeUtterance, stripEmoji } from '../validate'
+import {
+  checkDialogue,
+  dropDayOverSentences,
+  dropEchoedSentences,
+  dropMirroredSentences,
+  fitLength,
+  fixAddress,
+  hasBareNameAddress,
+  hasEmoji,
+  hasParticleError,
+  hasSelfHonorific,
+  limitLaughter,
+  normalizeUtterance,
+  stripEmoji,
+} from '../validate'
 
 export type DialogueMode = 'reply' | 'start_topic' | 'greeting' | 'newcomer_greeting' | 'open_private' | 'wrap_up' | 'follow_up'
 
@@ -23,13 +37,13 @@ const INSTRUCTIONS: Record<DialogueMode, string> = {
   reply: '대화 흐름에 맞게 다음 말을 한 마디 해라. 방금 나온 말에 대답하거나 반응하는 것이 먼저다. 할 말이 없으면 침묵해도 된다.',
   follow_up: '방금 나온 말에 자연스럽게 이어서 한 마디 해라. 굳이 할 말이 없으면 침묵해라.',
   start_topic: '대화가 잠시 끊겼다. 지금 장소나 방금까지 나온 얘기와 이어지는 가벼운 화제를 꺼내라. 이미 나온 얘기를 반복하지 마라.',
-  greeting: '방금 숙소 거실에 처음 들어왔다. 먼저 와 있던 사람들에게 "안녕하세요"로 짧게 인사하고 이름을 말해라. 나이나 직업은 아직 말하지 않는다.',
-  newcomer_greeting: '둘째 날 새 입주자로 숙소 거실에 들어왔다. 먼저 와 있던 사람들에게 "안녕하세요"로 인사하고 이름, 나이, 직업을 짧게 소개해라.',
+  greeting: '방금 숙소 거실에 처음 들어왔다. 먼저 와 있던 사람들에게 짧게 인사하고 이름을 말해라. 나이나 직업은 아직 말하지 않는다.',
+  newcomer_greeting: '둘째 날 새 입주자로 숙소 거실에 들어왔다. 먼저 와 있던 사람들에게 인사하고 이름, 나이, 직업을 짧게 소개해라.',
   open_private: '단둘이 이야기할 시간이 생겼다. 상대에게 먼저 가볍게 말을 건다. 상대에 대해 궁금했던 것이나 아까 나눈 이야기를 한 문장으로 꺼낸다. 하루를 정리하는 긴 소감은 말하지 않는다.',
   wrap_up: '대화 시간이 곧 끝난다. 새 화제를 꺼내지 말고 자연스럽게 마무리하는 말을 해라.',
 }
 
-/** 소형 모델이 돌려 쓰는 상투적 표현. 최근 대화에 여러 번 나오면 쓰지 말라고 알려 준다(실측). */
+/** 소형 모델이 돌려 쓰는 상투적 표현(감지용, 실측). 최근 대화에 여러 번 나왔는데 또 쓰면 다시 쓰게 한다. */
 const STOCK_PHRASES = ['오늘 하루', '편안하', '분위기', '시간이 빨리', '기억에 남', '다행']
 
 function metooCount(texts: readonly string[]): number {
@@ -57,7 +71,10 @@ export const dialogueTask: TaskSpec<DialogueInput, { action: 'speak' | 'silent';
     if (issues.includes('too_long')) hints.push('방금 쓴 말이 너무 길다. 한 문장으로 짧게 쓴다.')
     if (issues.includes('foreign_script')) hints.push('한국어로만 쓴다.')
     if (issues.includes('self_third_person')) hints.push('기억을 읽어 주듯 해설하지 말고, 네가 직접 상대에게 하는 말로 쓴다. 자기 이름을 3인칭으로 쓰지 않는다.')
-    if (issues.includes('self_honorific')) hints.push('자기 자신에게는 높임말(드시다, 하시다)을 쓰지 않는다. "저도 차를 마셔요"처럼 쓴다.')
+    if (issues.includes('self_honorific')) hints.push('방금 쓴 말에서 자기 자신의 행동에 높임 표현을 썼다. 자기 일은 높이지 않고 쓴다.')
+    if (issues.includes('stock_phrase')) hints.push('방금 쓴 말에 최근 대화에서 여러 번 반복된 표현이 들어 있다. 남이 쓴 표현을 따라 쓰지 말고 네 말로 쓴다.')
+    if (issues.includes('grammar')) hints.push('방금 쓴 말에 1인칭 조사가 틀린 곳이 있다. 문법에 맞게 다시 쓴다.')
+    if (issues.includes('address')) hints.push('상대 이름만 덩그러니 불렀다. 이름을 부르지 않거나 자연스러운 호칭으로 쓴다.')
     if (issues.includes('time_mismatch')) hints.push('지금은 하루가 끝나지 않았다. 하루를 다 보낸 것처럼 묻거나 말하지 않는다.')
     return hints.length > 0 ? hints.join(' ') : null
   },
@@ -77,7 +94,7 @@ export const dialogueTask: TaskSpec<DialogueInput, { action: 'speak' | 'silent';
     const meetingHint = !firstMeeting
       ? ''
       : i.mode === 'start_topic'
-        ? '\n아직 서로 잘 모르는 사이라 존댓말을 쓴다. 오는 길, 숙소 첫인상, 방금 들은 자기소개처럼 처음 만난 자리에 어울리는 얘기를 한다.'
+        ? '\n아직 서로 잘 모르는 사이라 존댓말을 쓴다. 처음 만난 자리에 어울리는 가벼운 얘기를 한다.'
         : '\n아직 서로 잘 모르는 사이라 존댓말을 쓴다.'
     // 같은 취미 이야기로 맴도는 것을 막는다(실측: 3일 내내 러닝·와인). 새 화제를 꺼낼 때는 피하고, 대답할 때는 되풀이하지 않는다.
     const worn = view.wornTopics(ctx.config.pools.interests.map((x) => x.split(' ')[0] ?? x))
@@ -85,14 +102,15 @@ export const dialogueTask: TaskSpec<DialogueInput, { action: 'speak' | 'silent';
       worn.length === 0
         ? ''
         : i.mode === 'start_topic' || i.mode === 'open_private'
-          ? `\n이미 여러 번 나온 화제(${worn.join(', ')})는 꺼내지 않는다. 오늘 일정에 대한 소감, 하는 일, 연애에서 중요하게 여기는 것, 여기 와서 느낀 점처럼 다른 이야기를 한다.`
+          ? `\n이미 여러 번 나온 화제(${worn.join(', ')})는 꺼내지 않고 다른 이야기를 한다.`
           : `\n${worn.join(', ')} 이야기는 이미 많이 했다. 상대가 먼저 꺼내지 않으면 다시 꺼내지 않는다.`
     // 장소 이름을 메시지마다 되풀이하는 경우가 많았다(실측: 데이트 내내 "바닷가 카페에서"). 이미 두 번 말했으면 그만 말하게 한다.
     // 맞장구("저도요", "저도 ~해요")로만 이어지는 대화를 막는다. 실측: 3일차 거실에서 셋 중 하나가 "저도"로 시작했다.
     const mirroring = metooCount(view.roomMessages(i.roomId, 6, 1200).map((m) => m.text)) >= 2
-    const metooHint = mirroring ? '\n이번에는 "저도"로 시작하지 않는다. 너만의 생각이나 상대와 다른 점을 말한다.' : ''
+    const metooHint = mirroring ? '\n맞장구만 이어지고 있다. 따라 하지 말고 네 생각이나 상대와 다른 점을 말한다.' : ''
+    // 상투 표현은 목록을 프롬프트에 적지 않는다(금지 낱말을 보여 주면 오히려 떠오른다, qa-rules.md 1.2). 반복됐다는 사실만 알리고, 쓰면 출력 검증에서 다시 쓰게 한다.
     const stock = view.wornTopics(STOCK_PHRASES, 30, 3)
-    const stockHint = stock.length > 0 ? `\n요즘 자주 나온 말(${stock.map((x) => `"${x}"`).join(', ')})은 쓰지 않는다.` : ''
+    const stockHint = stock.length > 0 ? '\n최근 대화에 같은 표현이 여러 번 되풀이됐다. 남이 쓴 표현을 따라 쓰지 않는다.' : ''
     const place = view.roomLocation(i.roomId)
     const placeHint =
       i.roomId !== 'living' && view.ownRecentMessages(6).filter((t) => t.includes(place)).length >= 2 ? `\n${place} 이야기는 이미 했다. 장소 이야기를 또 꺼내지 않는다.` : ''
@@ -123,7 +141,7 @@ export const dialogueTask: TaskSpec<DialogueInput, { action: 'speak' | 'silent';
       .filter((id) => id !== i.speakerId)
       .map((id) => view.known(id).name)
       .filter((n): n is string => n !== null)
-    const addressed = fixAddress(normalizeUtterance(raw.text, speakerName), knownNames, mustBePolite)
+    const addressed = fixAddress(normalizeUtterance(raw.text, speakerName), knownNames)
     const laughed = limitLaughter(addressed, cast?.speech.laughter ?? 0)
     if (laughed.length === 0) return { value: { text: null } }
     // 이 방의 최근 문장(누가 했든)을 되풀이한 문장은 지운다. 다 지워지면 반복으로 거부하고 다시 만든다.
@@ -134,9 +152,7 @@ export const dialogueTask: TaskSpec<DialogueInput, { action: 'speak' | 'silent';
     const timed = dropDayOverSentences(deduped, hourOf(ctx.state.simTime))
     if (timed.length === 0) return { issues: ['time_mismatch'] }
     const lastOwn = view.ownRecentMessages(1)[0]
-    // 맞장구가 이미 이어지고 있으면 앞의 "저도요."를 뗀다. 뒤에 다른 이야기가 오는 경우가 많아 말이 어긋났다("저도요. 주말엔 수영장…").
-    const unmirrored = metooCount(view.roomMessages(i.roomId, 6, 1200).map((m) => m.text)) >= 2 ? timed.replace(/^저도요[.!,~]?\s+(?=\S)/, '') : timed
-    const normalized = lastOwn && hasEmoji(lastOwn) ? stripEmoji(unmirrored) : unmirrored
+    const normalized = lastOwn && hasEmoji(lastOwn) ? stripEmoji(timed) : timed
     if (normalized.length === 0) return { value: { text: null } }
     const fitted = fitLength(normalized, maxChars) ?? normalized
     const issues = checkDialogue(
@@ -155,6 +171,11 @@ export const dialogueTask: TaskSpec<DialogueInput, { action: 'speak' | 'silent';
     // 인사·자기소개가 아닌데 자기 전체 이름이 나오면 해설로 보고 다시 쓰게 한다.
     // "저 김하린입니다"(자기소개)는 괜찮고, "김하린과 …", "김하린은 …"처럼 3인칭 조사가 붙으면 해설이다.
     if (hasSelfHonorific(fitted)) issues.push('self_honorific')
+    if (hasParticleError(fitted)) issues.push('grammar')
+    if (mustBePolite && hasBareNameAddress(fitted, knownNames)) issues.push('address')
+    // 최근에 세 번 넘게 되풀이된 상투 표현을 또 쓰면 다시 쓰게 한다(감지·거부만 한다, qa-rules.md 2).
+    const worn = view.wornTopics(STOCK_PHRASES, 30, 3)
+    if (worn.some((p) => fitted.includes(p))) issues.push('stock_phrase')
     if (speakerName.length > 0 && new RegExp(`${speakerName}(과|와|은|는|이가|의|을|를|에게|한테|씨)`).test(fitted)) issues.push('self_third_person')
     return issues.length > 0 ? { issues } : { value: { text: fitted } }
   },

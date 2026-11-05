@@ -44,7 +44,7 @@ export const mailboxQuestionTask: TaskSpec<MailboxQuestionInput, { target: strin
     const system = joinSections(
       COMMON_RULES,
       personaSection(view),
-      `[출력 규칙]\nJSON으로만 답한다: {"target":"이름 또는 ${NONE}","question":"질문"}. question은 ${max}자 이내의 의문문 한 문장이고 물음표로 끝난다. 감상이나 칭찬만 쓰지 않는다. 예: "처음 만났을 때 제 첫인상은 어땠어요?"`,
+      `[출력 규칙]\nJSON으로만 답한다: {"target":"이름 또는 ${NONE}","question":"질문"}. question은 ${max}자 이내의 의문문 한 문장이고 물음표로 끝난다. 감상이나 칭찬만 쓰지 않는다.`,
     )
     const user = joinSections(
       `[시그널 우체통]\n마지막 날 아침이다. 더 알고 싶은 이성 한 명에게 질문 하나를 보낸다. 질문과 답은 둘만 본다.\n지금까지 나눈 대화를 바탕으로 정말 궁금한 것을 묻는다. 궁금한 사람이 없으면 "${NONE}"을 고른다.`,
