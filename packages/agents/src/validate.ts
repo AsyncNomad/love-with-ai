@@ -144,9 +144,15 @@ export function isCasual(text: string): boolean {
     .split(/(?<=[.!?])\s+/)
     .filter((s) => /[가-힣]/.test(s))
   const last = sentences.at(-1) ?? ''
-  if (!isPolite(last) && CASUAL_ENDING.test(last)) return true
-  return sentences.slice(0, -1).some((s) => (s.match(/[가-힣]/g) ?? []).length >= 2 && !isPolite(s) && STRONG_CASUAL_ENDING.test(s))
+  if (!isPolite(last) && !NOT_CASUAL.test(last) && CASUAL_ENDING.test(last)) return true
+  return sentences.slice(0, -1).some((s) => (s.match(/[가-힣]/g) ?? []).length >= 2 && !isPolite(s) && !NOT_CASUAL.test(s) && STRONG_CASUAL_ENDING.test(s))
 }
+
+/**
+ * 반말 어미처럼 끝나지만 존댓말 대화에서도 자연스러운 끝맺음. 감탄 반응("아, 여행 계획이라니."), 청유("~합시다"),
+ * 이음 조각("전시회도 충분히 봤으니.")이다. 실측(10·11회차): 반말 거부의 약 3분의 1이 이것이었다.
+ */
+const NOT_CASUAL = /(라니|으니|[가-힣]니까|[ㅂ읍]시다|합시다|갑시다|봅시다)[.!?~\s]*$/
 
 const EDGE = String.raw`(?:^|[\s,.!?~])`
 const END = String.raw`(?=$|[\s,.!?~])`

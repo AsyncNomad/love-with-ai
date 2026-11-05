@@ -172,7 +172,9 @@ describe('second real-model run', () => {
 describe('third real-model run', () => {
   it('detects 제가랑 and flags a mid-message casual 니?', () => {
     expect(hasParticleError('그럼요, 제가랑은 좀 다르죠.')).toBe(true)
-    expect(isCasual('음식이라니? 저는 디저트를 좋아해요.')).toBe(true)
+    // "~라니" 감탄 반응은 존댓말 대화에서도 자연스럽다(11회차 뒤 기준 변경). 반말 의문은 다른 어미로 잡는다.
+    expect(isCasual('음식이라니? 저는 디저트를 좋아해요.')).toBe(false)
+    expect(isCasual('뭐 먹을 거니? 저는 디저트를 좋아해요.')).toBe(true)
   })
 })
 
@@ -212,5 +214,15 @@ describe('ninth real-model run', () => {
     expect(hasSelfHonorific('저도 요즘은 커피보다는 차를 더 많이 드시네요.')).toBe(true)
     expect(hasSelfHonorific('저는 지수 씨가 하시는 일이 궁금해요.')).toBe(false)
     expect(hasSelfHonorific('저도 차를 자주 마셔요.')).toBe(false)
+  })
+})
+
+describe('eleventh real-model run', () => {
+  it('does not treat polite-context reactions as casual', () => {
+    expect(isCasual('아, 여행 계획이라니. 저는 즉흥적인 편이에요.')).toBe(false)
+    expect(isCasual('그럼, 일상적인 걸 보며 힐링하는 걸로 합시다.')).toBe(false)
+    expect(isCasual('전시회도 충분히 봤으니. 이제 쉬어요.')).toBe(false)
+    expect(isCasual('음, 그럼 오늘 아침에 맛있는 브런치 먹자')).toBe(true)
+    expect(isCasual('뭐 하니?')).toBe(true)
   })
 })

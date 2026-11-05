@@ -40,7 +40,20 @@ export function situationSection(view: ObservationView, roomId: RoomId): string 
   const others = view.presentOthers(roomId).map((id) => view.label(id))
   const where = view.roomLocation(roomId)
   const who = others.length > 0 ? others.join(', ') : '아무도 없음'
-  return `[지금 상황]\n시간: ${formatSimTime(view.simTime)} (${timeOfDayNote(view.simTime)})\n장소: ${where}\n함께 있는 사람: ${who}`
+  return `[지금 상황]\n시간: ${formatSimTime(view.simTime)} (${timeOfDayNote(view.simTime)})\n장소: ${where}\n함께 있는 사람: ${who}${speechNote(view, roomId)}`
+}
+
+/**
+ * 함께 있는 사람과의 말투 관계(D13 상태). 처음 보는 사람은 [아는 사람]에 없어서 존댓말 사이라는 사실이 드러나지 않았고,
+ * 입장 인사에서 반말이 많이 나왔다(실측 11회차: "안녕, 홍윤서야."). 낱말을 지정하지 않고 관계만 알린다(qa-rules.md 1.4).
+ */
+function speechNote(view: ObservationView, roomId: RoomId): string {
+  const others = view.presentOthers(roomId)
+  if (others.length === 0) return ''
+  const casual = others.filter((id) => view.speechLevel(id) === 'casual')
+  if (casual.length === 0) return '\n말투: 여기 있는 사람 모두와 아직 존댓말을 쓰는 사이다'
+  if (casual.length === others.length) return '\n말투: 여기 있는 사람 모두와 말을 놓은 사이다'
+  return `\n말투: ${casual.map((id) => view.label(id)).join(', ')}와는 말을 놓았고, 나머지와는 존댓말을 쓰는 사이다. 여럿이 있을 때는 존댓말로 한다`
 }
 
 /**
