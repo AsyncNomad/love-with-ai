@@ -53,6 +53,18 @@ describe('headless 3-day simulation (FakeLlm, virtual clock)', () => {
     expect(r.clientView).toEqual(r.serverView)
   })
 
+  it('lets AIs propose dropping formality to the human in 1:1 (game-rules §11)', async () => {
+    const proposals = []
+    for (const seed of ['speech-1', 'speech-2', 'speech-3']) {
+      const r = await runSimulation({ seed })
+      expect(r.violations).toEqual([])
+      const human = r.sink.events.find((e) => e.type === 'PARTICIPANT_CAST' && e.payload.participant.isHuman)
+      const humanId = human?.type === 'PARTICIPANT_CAST' ? human.payload.participant.id : ''
+      proposals.push(...r.sink.events.filter((e) => e.type === 'SPEECH_PROPOSED' && e.payload.toId === humanId))
+    }
+    expect(proposals.length).toBeGreaterThan(0)
+  })
+
   it('delivers anonymous cards without any trace of the sender', async () => {
     const r = await runSimulation({ seed: 'cards' })
     const received = r.sink.events.filter((e) => e.type === 'SIGNAL_CARD_RECEIVED')

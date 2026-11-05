@@ -60,6 +60,8 @@ export class ChatScene {
   private messageCount = 0
   /** 한 장면에서는 말 놓기를 한 번만 제안한다(game-rules.md §11.2). */
   private proposedInScene = false
+  /** 제안 요청을 걸어 두었다(같은 틱에 두 번 걸지 않게). 제안하는 말이 실제로 올라가야 proposedInScene이 된다. */
+  private proposalRequested = false
   /** AI가 사람에게 한 말 놓기 제안. 사람의 다음 말로 대답을 판정한다. */
   private pendingHumanAnswer: { proposalId: string; proposerId: ParticipantId; kind: SpeechPick['kind']; said: string } | null = null
   private silentStreak = 0
@@ -248,19 +250,29 @@ export class ChatScene {
     }
   }
 
-  /** 조건이 맞으면 이 장면에서 한 번, 말 놓기를 제안하게 한다(game-rules.md §11.2). 제안했으면 true. */
+  /**
+   * 조건이 맞으면 이 장면에서 한 번, 말 놓기를 제안하게 한다(game-rules.md §11.2). 제안을 걸었으면 true.
+   * 이 판정은 AI의 말이 방에 올라가는 순간에 돈다. 그때 방금 말한 AI는 아직 생성 중으로 잡혀 있어서, 요청은 그 정리가 끝난 뒤로 미룬다.
+   * 실측(14회차): 미루지 않아 사람과의 1:1에서는 제안이 한 번도 나오지 않았다(조건을 만족한 순간 35번, 제안 1번).
+   */
   private maybeProposeCasual(priority: number): boolean {
-    if (this.proposedInScene || this.messageCount < this.config.speech.minSceneMessages) return false
+    if (this.proposedInScene || this.proposalRequested || this.messageCount < this.config.speech.minSceneMessages) return false
     const pick = this.deps.speech.pick(this.deps.house.members(this.roomId), this.humanId, this.isPrivate, this.deps.rng)
-    if (!pick || this.inFlight.has(pick.proposerId)) return false
-    this.proposedInScene = true
-    this.request(pick.proposerId, 'propose_casual', priority, false, pick)
+    if (!pick) return false
+    this.proposalRequested = true
+    queueMicrotask(() => {
+      this.proposalRequested = false
+      if (!this.accepting || this.proposedInScene || this.inFlight.has(pick.proposerId)) return
+      this.request(pick.proposerId, 'propose_casual', priority, false, pick)
+    })
     return true
   }
 
   /** 제안하는 말이 나온 뒤: 제안을 남기고, 상대가 AI면 바로 대답하게 하고, 사람이면 다음 말을 기다린다. */
   private async afterProposal(pick: SpeechPick, said: string): Promise<void> {
     const { speech, agents } = this.deps
+    // 사람이 끼어들어 제안 생성이 취소되면 다시 기회가 있다. 제안하는 말이 올라간 뒤에만 "이 장면에서 제안함"으로 본다.
+    this.proposedInScene = true
     const proposalId = speech.propose(this.roomId, pick.proposerId, pick.targetId, pick.kind)
     if (pick.targetId === this.humanId) {
       this.pendingHumanAnswer = { proposalId, proposerId: pick.proposerId, kind: pick.kind, said }
