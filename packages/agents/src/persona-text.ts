@@ -37,6 +37,8 @@ function speechRules(cast: CastParticipant, flavor: PersonaFlavor | null): strin
   parts.push(s.emoji >= 0.5 ? '이모티콘을 종종 쓴다' : '이모티콘은 거의 안 쓴다')
   parts.push(s.questionTendency >= 0.6 ? '질문을 자주 던진다' : '질문보다 자기 얘기를 하는 편이다')
   if (s.humorStyle) parts.push(`${s.humorStyle} 유머`)
+  // 말투 설명이 "짧고 유쾌한" 식이면 반말로 흘렀다(실측 15회차). 성격과 별개로, 누구에게 반말을 하는지는 관계가 정한다(D13, D38).
+  parts.push('말을 놓기로 한 사이가 아니면 존댓말을 쓴다')
   return parts.join(', ')
 }
 

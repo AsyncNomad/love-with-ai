@@ -103,7 +103,7 @@ export const fakeResponders: Record<string, FakeResponder> = {
     if (req.meta.mode === 'answer') return { answer: 'accept' }
     const said = req.messages.at(-1)?.content ?? ''
     const target = enumAt(req.jsonSchema, ['properties', 'target'])[1]
-    return said.includes('편하게') && target ? { target, kind: 'mutual' } : { target: '없음', kind: 'none' }
+    return (said.includes('편하게') || said.includes('말을 놓')) && target ? { target, kind: 'mutual' } : { target: '없음', kind: 'none' }
   },
   memory_summary: () => ({ summary: '오늘은 여러 사람과 이야기했다. 아직 누가 잘 맞는지는 모르겠다.' }),
   persona_profile: (req) => ({

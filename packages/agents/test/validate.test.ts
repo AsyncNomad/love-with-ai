@@ -224,5 +224,7 @@ describe('eleventh real-model run', () => {
     expect(isCasual('전시회도 충분히 봤으니. 이제 쉬어요.')).toBe(false)
     expect(isCasual('음, 그럼 오늘 아침에 맛있는 브런치 먹자')).toBe(true)
     expect(isCasual('뭐 하니?')).toBe(true)
+    expect(isCasual('네, 제가 한강에서 자주 뛰는 편이라 그런지.')).toBe(false)
+    expect(isCasual('오늘 뭐 했는지 궁금해.')).toBe(true)
   })
 })

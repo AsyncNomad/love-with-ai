@@ -165,8 +165,8 @@ export class AgentService {
     return res.ok ? res.value : null
   }
 
-  /** 사람의 말에서 말 놓기 제안을 읽는다(§11.5). 아니면 null. */
-  async judgeHumanOffer(text: string, candidateIds: ParticipantId[]): Promise<{ targetId: ParticipantId; offer: SpeechProposalKind } | null> {
+  /** 누군가의 말(사람의 말, 또는 AI가 제안하려고 한 말)에서 말 놓기 제안을 읽는다(§11.5). 아니면 null. */
+  async judgeSpeechOffer(text: string, candidateIds: ParticipantId[]): Promise<{ targetId: ParticipantId; offer: SpeechProposalKind } | null> {
     if (candidateIds.length === 0) return null
     const res = await this.exec(humanSpeechTask, { mode: 'offer', text, candidateIds }, Priority.P0_HUMAN_WAITING)
     const v: HumanSpeechOutput | null = res.ok ? res.value : null

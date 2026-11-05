@@ -62,12 +62,13 @@ function offerNote(view: ObservationView, i: DialogueInput): string {
   if (i.mode !== 'propose_casual' || !offer) return ''
   const name = view.label(offer.targetId)
   const age = ageRelation(view.self().cast.age, view.known(offer.targetId).age) ?? ''
+  // "말을 편하게"만 쓰면 "편하게 쉬자"로 읽었다(실측 15회차). 무엇을 하는지(존댓말을 그만 쓰고 반말을 하는 것) 행동으로 설명한다.
   const what =
     offer.kind === 'mutual'
-      ? '서로 말을 편하게 하자고 제안한다'
+      ? '존댓말을 그만 쓰고 서로 말을 놓자고(반말을 하자고) 제안한다'
       : offer.kind === 'ask'
-        ? '네가 말을 편하게 해도 되는지 조심스럽게 묻는다'
-        : '상대에게 너한테는 편하게 말을 놓으라고 권한다'
+        ? '네가 이 사람에게 말을 놓아도(반말을 해도) 되는지 조심스럽게 묻는다'
+        : '이 사람에게 너한테는 말을 놓으라고(반말을 하라고) 권한다'
   return ` 상대: ${name}(${age}). 지금 ${what}. 그 말 한 마디만 하고, 아직은 존댓말로 말한다.`
 }
 

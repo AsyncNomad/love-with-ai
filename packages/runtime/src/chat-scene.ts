@@ -62,6 +62,8 @@ export class ChatScene {
   private proposedInScene = false
   /** 제안 요청을 걸어 두었다(같은 틱에 두 번 걸지 않게). 제안하는 말이 실제로 올라가야 proposedInScene이 된다. */
   private proposalRequested = false
+  /** 제안하려고 했지만 제안으로 읽히지 않은 횟수. 장면마다 두 번까지 시도한다. */
+  private proposalAttempts = 0
   /** AI가 사람에게 한 말 놓기 제안. 사람의 다음 말로 대답을 판정한다. */
   private pendingHumanAnswer: { proposalId: string; proposerId: ParticipantId; kind: SpeechPick['kind']; said: string } | null = null
   private silentStreak = 0
@@ -273,13 +275,21 @@ export class ChatScene {
     const { speech, agents } = this.deps
     // 사람이 끼어들어 제안 생성이 취소되면 다시 기회가 있다. 제안하는 말이 올라간 뒤에만 "이 장면에서 제안함"으로 본다.
     this.proposedInScene = true
+    // 실제로 말 놓기 제안이었는지 확인한다. 실측(15회차): "잠이 안 오시면 천천히 쉬는 시간이라도…"를 제안으로 기록했다.
+    // 대화와 상태가 어긋나면 안 되므로, 제안으로 읽히지 않으면 기록하지 않고 한 번 더 기회를 준다.
+    const heard = await agents.judgeSpeechOffer(said, [pick.targetId])
+    if (heard?.targetId !== pick.targetId) {
+      this.proposalAttempts++
+      if (this.proposalAttempts < 2) this.proposedInScene = false
+      return
+    }
     const proposalId = speech.propose(this.roomId, pick.proposerId, pick.targetId, pick.kind)
     if (pick.targetId === this.humanId) {
       this.pendingHumanAnswer = { proposalId, proposerId: pick.proposerId, kind: pick.kind, said }
       return
     }
     const res = await agents.speechResponse(pick.targetId, pick.proposerId, pick.kind, this.roomId, this.isBackground ? Priority.P4_BACKGROUND : Priority.P1_SCENE)
-    const spoke = res !== null && this.active && (await this.sayAfterTyping(pick.targetId, res.text))
+    const spoke = res !== null && (await this.sayAfterTyping(pick.targetId, res.text))
     speech.answer(this.roomId, proposalId, pick.proposerId, pick.targetId, pick.kind, spoke && res ? res.answer : 'none')
   }
 
@@ -287,7 +297,7 @@ export class ChatScene {
   private async handleHumanOffer(text: string): Promise<void> {
     const human = this.humanId
     const ais = this.deps.house.members(this.roomId).filter((id) => id !== human)
-    const offer = human ? await this.deps.agents.judgeHumanOffer(text, ais) : null
+    const offer = human ? await this.deps.agents.judgeSpeechOffer(text, ais) : null
     if (!this.active) return
     if (!offer || !human || this.deps.session.state.speechProposals.has(pairKey(human, offer.targetId))) {
       this.replyToHuman()
@@ -295,7 +305,7 @@ export class ChatScene {
     }
     const proposalId = this.deps.speech.propose(this.roomId, human, offer.targetId, offer.offer)
     const res = await this.deps.agents.speechResponse(offer.targetId, human, offer.offer, this.roomId, Priority.P0_HUMAN_WAITING)
-    const spoke = res !== null && this.active && (await this.sayAfterTyping(offer.targetId, res.text))
+    const spoke = res !== null && (await this.sayAfterTyping(offer.targetId, res.text))
     this.deps.speech.answer(this.roomId, proposalId, human, offer.targetId, offer.offer, spoke && res ? res.answer : 'none')
   }
 
@@ -304,7 +314,8 @@ export class ChatScene {
     this.setTyping(speakerId, true)
     await this.deps.clock.wait(Math.min(t.maxMs, t.baseMs + t.perCharMs * text.length)).promise
     this.setTyping(speakerId, false)
-    return this.active && this.deps.house.say(this.roomId, speakerId, text, this.isBackground)
+    // 백그라운드 장면은 정해진 발언 수에 닿으면 먼저 끝난다. 말 놓기 대답은 방이 열려 있는 동안이면 올린다(실측 15회차: 대답 전에 장면이 끝났다).
+    return this.deps.house.isOpen(this.roomId) && this.deps.house.say(this.roomId, speakerId, text, this.isBackground)
   }
 
   private choose(k: number, exclude?: ParticipantId, alsoExclude?: ReadonlySet<ParticipantId>): ParticipantId[] {
