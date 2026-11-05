@@ -31,7 +31,7 @@ export interface TaskSpec<I, Raw, R> {
    * 다시 시도할 때 사용자 프롬프트 끝에 붙일 말. 같은 프롬프트를 그대로 다시 보내면 소형 모델은 같은 답을 낸다
    * (실측: 반복으로 거부된 대사를 두 번 다 똑같이 만들어 말을 못 했다). 직전 시도의 거부 사유를 받아 무엇을 고칠지 알려 준다.
    */
-  retryHint?(issues: readonly string[]): string | null
+  retryHint?(issues: readonly string[], rejected: Raw | null): string | null
   schema(input: I, ctx: TaskContext): z.ZodType<Raw>
   build(input: I, ctx: TaskContext): BuiltPrompt
   finish(raw: Raw, input: I, ctx: TaskContext, built: BuiltPrompt): Finish<R>
@@ -91,11 +91,13 @@ export class AgentRunner {
     const base = this.deps.context()
     const attempts = spec.attempts?.(base) ?? base.config.llm.retries + 1
     let lastIssues: string[] = []
+    // 직전 시도에서 거부된 출력. 재시도 힌트가 "방금 쓴 '…'"처럼 모델 자신의 문장을 짚어 줄 때 쓴다.
+    let lastRaw: Raw | null = null
     for (let attempt = 0; attempt < attempts; attempt++) {
       if (signal?.aborted) return { ok: false, issues: ['aborted'], aborted: true }
       const ctx = this.deps.context()
       const first = spec.build(input, ctx)
-      const hint = attempt > 0 ? spec.retryHint?.(lastIssues) : null
+      const hint = attempt > 0 ? spec.retryHint?.(lastIssues, lastRaw) : null
       const built = hint ? { ...first, user: `${first.user}\n\n[다시 쓰기]\n${hint}` } : first
       const schema = spec.schema(input, ctx)
       const callId = this.deps.newId()
@@ -134,6 +136,7 @@ export class AgentRunner {
           continue
         }
         const fin = spec.finish(parsed.value, input, this.deps.context(), built)
+        lastRaw = parsed.value
         if ('issues' in fin) {
           lastIssues = fin.issues
           this.deps.recordCall({ ...base, durationMs, ...tokens, outcome: 'rejected', issues: lastIssues, error: null })

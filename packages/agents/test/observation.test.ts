@@ -83,6 +83,12 @@ describe('ObservationView isolation', () => {
     expect('value' in intro).toBe(true)
   })
 
+  it('retry hints quote the rejected sentence without suggesting new wording', () => {
+    const hint = dialogueTask.retryHint?.(['speech_level'], { action: 'speak', text: '반가워요. 나도 그거 좋아해.' }) ?? ''
+    expect(hint).toContain('"나도 그거 좋아해."')
+    expect(dialogueTask.retryHint?.(['repetition'], null)).not.toContain('걸린 문장')
+  })
+
   it('reports topics that keep coming up', () => {
     const s = setup()
     for (const id of ['a', 'b']) push(s, { type: 'MEMBER_JOINED', payload: { roomId: 'living', participantId: id }, visibility: { kind: 'room' } })

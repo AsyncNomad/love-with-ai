@@ -13,9 +13,12 @@ import {
   hasBareNameAddress,
   hasEmoji,
   hasParticleError,
+  hasCasualWord,
   hasSelfHonorific,
+  isCasual,
   limitLaughter,
   normalizeUtterance,
+  sentencesOf,
   stripEmoji,
 } from '../validate'
 
@@ -64,16 +67,22 @@ export const dialogueTask: TaskSpec<DialogueInput, { action: 'speak' | 'silent';
     return { ...base, temperature: Math.max(0.1, base.temperature + offset) }
   },
   maxTokens: (ctx) => ctx.config.llm.maxTokens.dialogue ?? 120,
-  retryHint: (issues) => {
+  // 무엇이 문제였는지 알리고, 걸린 문장이 있으면 모델 자신의 문장을 그대로 짚어 준다.
+  // 새 낱말이나 예시를 주지 않는다(qa-rules.md 1.2). 막연한 지시만으로는 같은 실수를 되풀이했다(실측: 반말 거부 22건).
+  retryHint: (issues, rejected) => {
+    const quote = (pred: (s: string) => boolean): string => {
+      const hit = rejected ? sentencesOf(rejected.text).find(pred) : undefined
+      return hit ? ` 걸린 문장: "${hit}"` : ''
+    }
     const hints: string[] = []
     if (issues.includes('repetition')) hints.push('방금 쓴 말은 이미 이 방에서 나온 말과 겹친다. 같은 이야기를 되풀이하지 말고 새로운 말을 하거나, 할 말이 없으면 침묵한다.')
-    if (issues.includes('speech_level')) hints.push('방금 쓴 말에 반말이 섞였다. 처음부터 끝까지 존댓말로 쓴다.')
+    if (issues.includes('speech_level')) hints.push(`방금 쓴 말에 반말이 섞였다. 처음부터 끝까지 존댓말로 쓴다.${quote((s) => isCasual(s) || hasCasualWord(s))}`)
     if (issues.includes('too_long')) hints.push('방금 쓴 말이 너무 길다. 한 문장으로 짧게 쓴다.')
     if (issues.includes('foreign_script')) hints.push('한국어로만 쓴다.')
     if (issues.includes('self_third_person')) hints.push('기억을 읽어 주듯 해설하지 말고, 네가 직접 상대에게 하는 말로 쓴다. 자기 이름을 3인칭으로 쓰지 않는다.')
-    if (issues.includes('self_honorific')) hints.push('방금 쓴 말에서 자기 자신의 행동에 높임 표현을 썼다. 자기 일은 높이지 않고 쓴다.')
-    if (issues.includes('stock_phrase')) hints.push('방금 쓴 말에 최근 대화에서 여러 번 반복된 표현이 들어 있다. 남이 쓴 표현을 따라 쓰지 말고 네 말로 쓴다.')
-    if (issues.includes('grammar')) hints.push('방금 쓴 말에 1인칭 조사가 틀린 곳이 있다. 문법에 맞게 다시 쓴다.')
+    if (issues.includes('self_honorific')) hints.push(`방금 쓴 말에서 자기 자신의 행동에 높임 표현을 썼다. 자기 일은 높이지 않고 쓴다.${quote(hasSelfHonorific)}`)
+    if (issues.includes('stock_phrase')) hints.push('방금 쓴 말에 네가 최근에 이미 쓴 표현이 또 들어 있다. 같은 표현을 되풀이하지 말고 다르게 쓴다.')
+    if (issues.includes('grammar')) hints.push(`방금 쓴 말에 1인칭 조사가 틀린 곳이 있다. 문법에 맞게 다시 쓴다.${quote(hasParticleError)}`)
     if (issues.includes('address')) hints.push('상대 이름만 덩그러니 불렀다. 이름을 부르지 않거나 자연스러운 호칭으로 쓴다.')
     if (issues.includes('time_mismatch')) hints.push('지금은 하루가 끝나지 않았다. 하루를 다 보낸 것처럼 묻거나 말하지 않는다.')
     return hints.length > 0 ? hints.join(' ') : null
@@ -173,9 +182,11 @@ export const dialogueTask: TaskSpec<DialogueInput, { action: 'speak' | 'silent';
     if (hasSelfHonorific(fitted)) issues.push('self_honorific')
     if (hasParticleError(fitted)) issues.push('grammar')
     if (mustBePolite && hasBareNameAddress(fitted, knownNames)) issues.push('address')
-    // 최근에 세 번 넘게 되풀이된 상투 표현을 또 쓰면 다시 쓰게 한다(감지·거부만 한다, qa-rules.md 2).
+    // 방 전체에서 흔해진 표현을 누가 쓰든 거부하면 너무 엄격했다(실측: 거부 16건, 생성 실패 증가).
+    // 방에서 되풀이되고 있고, 이 사람도 최근에 이미 쓴 표현을 또 쓸 때만 다시 쓰게 한다(감지·거부만 한다, qa-rules.md 2).
     const worn = view.wornTopics(STOCK_PHRASES, 30, 3)
-    if (worn.some((p) => fitted.includes(p))) issues.push('stock_phrase')
+    const ownRecent = view.ownRecentMessages(5)
+    if (worn.some((p) => fitted.includes(p) && ownRecent.some((t) => t.includes(p)))) issues.push('stock_phrase')
     if (speakerName.length > 0 && new RegExp(`${speakerName}(과|와|은|는|이가|의|을|를|에게|한테|씨)`).test(fitted)) issues.push('self_third_person')
     return issues.length > 0 ? { issues } : { value: { text: fitted } }
   },
