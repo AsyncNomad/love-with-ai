@@ -197,13 +197,15 @@ export class ChatScene {
     this.chainBudget = this.config.scheduler.maxChainAfterHuman
     for (const f of this.inFlight.values()) if (!f.replyToHuman) f.controller.abort()
     if (!this.accepting) return
-    // AI가 말 놓기를 제안한 뒤 사람이 처음 한 말을 대답으로 읽는다. 대화는 평소처럼 이어진다.
-    if (this.pendingHumanAnswer && this.humanId) {
+    // AI가 말 놓기를 제안한 뒤, 사람이 말투와 관련된 말을 하면 그것을 대답으로 읽는다. 대화는 평소처럼 이어진다.
+    // 관련 없는 말은 판정에 넘기지 않고 계속 기다린다. 실측(17회차): 상관없는 "오늘 하루 어떠셨어요?"를 받아들임으로 판정했고,
+    // 몇 마디 뒤에 온 진짜 대답("좋아요, 우리 말 편하게 해요")은 버려졌다.
+    if (this.pendingHumanAnswer && this.humanId && mayConcernSpeech(text)) {
       const p = this.pendingHumanAnswer
       const human = this.humanId
       this.pendingHumanAnswer = null
       void this.deps.agents.judgeHumanAnswer(text, p.proposerId, p.kind, p.said).then((answer) => this.deps.speech.answer(this.roomId, p.proposalId, p.proposerId, human, p.kind, answer))
-    } else if (mayConcernSpeech(text)) {
+    } else if (!this.pendingHumanAnswer && mayConcernSpeech(text)) {
       // 사람이 말 놓기를 제안했을 수 있다. 판정이 끝날 때까지 답할 사람을 고르지 않는다(제안 받은 사람이 대답하게).
       void this.handleHumanOffer(text)
       return

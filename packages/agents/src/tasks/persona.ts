@@ -3,7 +3,7 @@ import type { CastParticipant, PersonaFlavor } from '@heart/shared'
 import { TRAIT_AXES } from '@heart/shared'
 import { traitWord } from '@heart/engine'
 import type { TaskSpec } from '../task'
-import { LAUGH_THRESHOLD, checkDialogue, hasCasualWord, hasForeignScript, isPolite, limitLaughter, similarity } from '../validate'
+import { LAUGH_THRESHOLD, checkDialogue, hasCasualWord, hasForeignScript, hasLatinWord, isCasual, isPolite, limitLaughter, similarity } from '../validate'
 
 /**
  * 인격 서술 생성(design.md §8.1-6). 구조적 값(이름·나이·직업·성향)은 서버가 정했고 LLM은 바꾸지 못한다.
@@ -48,7 +48,7 @@ export const personaProfileTask: TaskSpec<{ cast: CastParticipant }, PersonaProf
     meta: { name: i.cast.name },
   }),
   finish: (raw) => {
-    if (Object.values(raw).some(hasForeignScript)) return { issues: ['foreign_script'] }
+    if (Object.values(raw).some((v) => hasForeignScript(v) || hasLatinWord(v))) return { issues: ['foreign_script'] }
     // "반말·사투리로 편하게 다가간다" 같은 설정은 대화 내내 반말 이야기로 번지고 존댓말 검증과 부딪힌다(실측).
     if (Object.values(raw).some((v) => SPEECH_TOPIC.test(v))) return { issues: ['speech_level'] }
     return { value: raw }
@@ -102,8 +102,9 @@ export const personaVoiceTask: TaskSpec<PersonaVoiceInput, PersonaVoice, Persona
       if (issues.length > 0) return { issues }
     }
     // 처음 만난 사이의 예시 대사는 존댓말이어야 한다. 반말 예시는 실제 대화도 반말로 끌고 간다(실측).
-    if (lines.filter(isPolite).length < 3 || lines.some((l) => hasCasualWord(l))) return { issues: ['not_polite'] }
-    if (hasForeignScript(raw.speechDescription)) return { issues: ['foreign_script'] }
+    // 예시 대사는 그 인물 말투의 기준이 된다. 반말이 한 줄이라도 섞이면 실제 대화의 반말로 이어졌다(실측 16회차: "그냥 그대로 말해야지.").
+    if (lines.filter(isPolite).length < 3 || lines.some((l) => hasCasualWord(l) || isCasual(l))) return { issues: ['not_polite'] }
+    if (hasForeignScript(raw.speechDescription) || hasLatinWord(raw.speechDescription)) return { issues: ['foreign_script'] }
     if (SPEECH_TOPIC.test(raw.speechDescription) || !DESCRIPTIVE_END.test(raw.speechDescription.trim())) return { issues: ['bad_description'] }
     const overlap = lines.filter((l) => i.othersLines.some((o) => similarity(o, l) >= 0.5)).length
     if (overlap >= 2) return { issues: ['persona_overlap'] }

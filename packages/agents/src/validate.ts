@@ -109,7 +109,13 @@ export function checkDialogue(input: DialogueCheckInput, cfg: ValidationConfig):
  * (예: "필라테스课上"). 라틴 문자는 닉네임·영단어로 흔히 쓰이므로 허용한다.
  */
 export function hasForeignScript(text: string): boolean {
-  return /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/.test(text)
+  // 한자·가나 외에도 태국·키릴·아랍·데바나가리 등 다른 문자 체계가 섞였다(실측 16회차: "이해ยาก해요").
+  return /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]|\p{Script=Thai}|\p{Script=Cyrillic}|\p{Script=Arabic}|\p{Script=Devanagari}|\p{Script=Hebrew}|\p{Script=Greek}/u.test(text)
+}
+
+/** 인물 설정처럼 이름이 들어갈 일이 없는 글에 섞인 영문(실측: "진지한 감정을 …Occasional하"). */
+export function hasLatinWord(text: string): boolean {
+  return /[A-Za-z]{2,}/.test(text)
 }
 
 /**

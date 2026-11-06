@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { defaultConfig } from '@heart/config'
-import { asQuestion, checkDialogue, hasBareNameAddress, hasParticleError, dropDayOverSentences, dropEchoedSentences, dropMirroredSentences, hasSelfHonorific, hasEmoji, stripEmoji, fitLength, fixAddress, hasCasualWord, hasEnglishWord, hasForeignScript, isCasual, isPolite, isRepeat, limitLaughter, normalizeUtterance, similarity } from '../src'
+import { asQuestion, hasLatinWord, checkDialogue, hasBareNameAddress, hasParticleError, dropDayOverSentences, dropEchoedSentences, dropMirroredSentences, hasSelfHonorific, hasEmoji, stripEmoji, fitLength, fixAddress, hasCasualWord, hasEnglishWord, hasForeignScript, isCasual, isPolite, isRepeat, limitLaughter, normalizeUtterance, similarity } from '../src'
 
 const cfg = defaultConfig.validation
 const base = { speakerName: '정하린', maxChars: 80, unknownNames: [] as string[], recentOwn: [] as string[] }
@@ -226,5 +226,15 @@ describe('eleventh real-model run', () => {
     expect(isCasual('뭐 하니?')).toBe(true)
     expect(isCasual('네, 제가 한강에서 자주 뛰는 편이라 그런지.')).toBe(false)
     expect(isCasual('오늘 뭐 했는지 궁금해.')).toBe(true)
+  })
+})
+
+describe('sixteenth real-model run', () => {
+  it('flags other scripts and stray English in persona text', () => {
+    expect(hasForeignScript('정말 이해ยาก해요')).toBe(true)
+    expect(hasForeignScript('Привет 반가워요')).toBe(true)
+    expect(hasForeignScript('반가워요 😊')).toBe(false)
+    expect(hasLatinWord('진지한 감정을 표현하면서도Occasional하게')).toBe(true)
+    expect(hasLatinWord('차분하고 담백한 말투')).toBe(false)
   })
 })
