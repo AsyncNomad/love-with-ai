@@ -12,6 +12,7 @@ import {
   fitLength,
   fixAddress,
   hasBareNameAddress,
+  hasFullNameHonorific,
   hasEmoji,
   hasParticleError,
   hasCasualWord,
@@ -106,7 +107,7 @@ export const dialogueTask: TaskSpec<DialogueInput, { action: 'speak' | 'silent';
     if (issues.includes('self_honorific')) hints.push(`방금 쓴 말에서 자기 자신의 행동에 높임 표현을 썼다. 자기 일은 높이지 않고 쓴다.${quote(hasSelfHonorific)}`)
     if (issues.includes('stock_phrase')) hints.push('방금 쓴 말에 네가 최근에 이미 쓴 표현이 또 들어 있다. 같은 표현을 되풀이하지 말고 다르게 쓴다.')
     if (issues.includes('grammar')) hints.push(`방금 쓴 말에 1인칭 조사가 틀린 곳이 있다. 문법에 맞게 다시 쓴다.${quote(hasParticleError)}`)
-    if (issues.includes('address')) hints.push('상대 이름만 덩그러니 불렀다. 이름을 부르지 않거나 자연스러운 호칭으로 쓴다.')
+    if (issues.includes('address')) hints.push('방금 상대를 부른 방식이 어색했다(이름만 덩그러니 부르거나, 성까지 붙여 딱딱하게 불렀다). 이름을 부르지 않거나 자연스럽게 부른다.')
     if (issues.includes('time_mismatch')) hints.push('지금은 하루가 끝나지 않았다. 하루를 다 보낸 것처럼 묻거나 말하지 않는다.')
     return hints.length > 0 ? hints.join(' ') : null
   },
@@ -136,6 +137,9 @@ export const dialogueTask: TaskSpec<DialogueInput, { action: 'speak' | 'silent';
         : i.mode === 'start_topic' || i.mode === 'open_private'
           ? `\n이미 여러 번 나온 화제(${worn.join(', ')})는 꺼내지 않고 다른 이야기를 한다.`
           : `\n${worn.join(', ')} 이야기는 이미 많이 했다. 상대가 먼저 꺼내지 않으면 다시 꺼내지 않는다.`
+    // 여러 사람이 같은 일상 화제를 돌아가며 되풀이하면(관심사 목록 밖의 화제) 새 내용을 보태거나 다른 이야기를 하게 한다.
+    const echoed = view.echoedTopics(i.roomId)
+    const echoHint = echoed.length > 0 ? `\n여러 사람이 같은 이야기(${echoed.join(', ')})를 돌아가며 하고 있다. 같은 말을 보태지 말고 새로운 내용을 말하거나 다른 이야기를 한다.` : ''
     // 장소 이름을 메시지마다 되풀이하는 경우가 많았다(실측: 데이트 내내 "바닷가 카페에서"). 이미 두 번 말했으면 그만 말하게 한다.
     // 맞장구("저도요", "저도 ~해요")로만 이어지는 대화를 막는다. 실측: 3일차 거실에서 셋 중 하나가 "저도"로 시작했다.
     const mirroring = metooCount(view.roomMessages(i.roomId, 6, 1200).map((m) => m.text)) >= 2
@@ -157,7 +161,7 @@ export const dialogueTask: TaskSpec<DialogueInput, { action: 'speak' | 'silent';
       sharedHistorySection(view),
       memorySection(view, ctx, others),
       conversationSection(view, ctx, i.roomId),
-      `[지금 할 일]\n${INSTRUCTIONS[i.mode]}${offerNote(view, i)}${i.mode === 'propose_casual' ? '' : `${meetingHint}${topicHint}${stockHint}${metooHint}${placeHint}`}`,
+      `[지금 할 일]\n${INSTRUCTIONS[i.mode]}${offerNote(view, i)}${i.mode === 'propose_casual' ? '' : `${meetingHint}${topicHint}${echoHint}${stockHint}${metooHint}${placeHint}`}`,
     )
     const self = view.self().cast
     return { system, user, view, meta: { mode: i.mode, speakerName: self.name, roomId: i.roomId } }
@@ -205,7 +209,7 @@ export const dialogueTask: TaskSpec<DialogueInput, { action: 'speak' | 'silent';
     // "저 김하린입니다"(자기소개)는 괜찮고, "김하린과 …", "김하린은 …"처럼 3인칭 조사가 붙으면 해설이다.
     if (hasSelfHonorific(fitted)) issues.push('self_honorific')
     if (hasParticleError(fitted)) issues.push('grammar')
-    if (mustBePolite && hasBareNameAddress(fitted, knownNames)) issues.push('address')
+    if ((mustBePolite && hasBareNameAddress(fitted, knownNames)) || hasFullNameHonorific(fitted, knownNames)) issues.push('address')
     // 방 전체에서 흔해진 표현을 누가 쓰든 거부하면 너무 엄격했다(실측: 거부 16건, 생성 실패 증가).
     // 방에서 되풀이되고 있고, 이 사람도 최근에 이미 쓴 표현을 또 쓸 때만 다시 쓰게 한다(감지·거부만 한다, qa-rules.md 2).
     const worn = view.wornTopics(STOCK_PHRASES, 30, 3)

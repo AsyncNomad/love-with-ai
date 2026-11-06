@@ -200,6 +200,11 @@ export function fixAddress(text: string, names: readonly string[]): string {
   return out.trim()
 }
 
+/** 성까지 붙인 전체 이름에 "님"을 붙인 딱딱한 호칭(실측 18회차: 데이트에서 "김지수님"). 감지만 하고 다시 쓰게 한다. */
+export function hasFullNameHonorific(text: string, names: readonly string[]): boolean {
+  return names.some((n) => /^[가-힣]{3,4}$/.test(n) && new RegExp(`${escapeRe(n)}\\s?님`).test(text))
+}
+
 /** 문장 중간에 이름만 덩그러니 부른 호칭("안녕하세요, 우진!")을 감지한다. 존댓말 사이에서 걸리면 다시 쓰게 한다. */
 export function hasBareNameAddress(text: string, names: readonly string[]): boolean {
   const forms = nameForms(names)

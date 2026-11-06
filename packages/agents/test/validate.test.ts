@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { defaultConfig } from '@heart/config'
-import { asQuestion, hasLatinWord, checkDialogue, hasBareNameAddress, hasParticleError, dropDayOverSentences, dropEchoedSentences, dropMirroredSentences, hasSelfHonorific, hasEmoji, stripEmoji, fitLength, fixAddress, hasCasualWord, hasEnglishWord, hasForeignScript, isCasual, isPolite, isRepeat, limitLaughter, normalizeUtterance, similarity } from '../src'
+import { asQuestion, hasFullNameHonorific, hasLatinWord, checkDialogue, hasBareNameAddress, hasParticleError, dropDayOverSentences, dropEchoedSentences, dropMirroredSentences, hasSelfHonorific, hasEmoji, stripEmoji, fitLength, fixAddress, hasCasualWord, hasEnglishWord, hasForeignScript, isCasual, isPolite, isRepeat, limitLaughter, normalizeUtterance, similarity } from '../src'
 
 const cfg = defaultConfig.validation
 const base = { speakerName: '정하린', maxChars: 80, unknownNames: [] as string[], recentOwn: [] as string[] }
@@ -236,5 +236,12 @@ describe('sixteenth real-model run', () => {
     expect(hasForeignScript('반가워요 😊')).toBe(false)
     expect(hasLatinWord('진지한 감정을 표현하면서도Occasional하게')).toBe(true)
     expect(hasLatinWord('차분하고 담백한 말투')).toBe(false)
+  })
+})
+
+describe('eighteenth real-model run', () => {
+  it('detects a stiff full-name honorific', () => {
+    expect(hasFullNameHonorific('혹시 김지수님이 최근에 본 영화 있으세요?', ['김지수'])).toBe(true)
+    expect(hasFullNameHonorific('지수 씨는 최근에 본 영화 있으세요?', ['김지수'])).toBe(false)
   })
 })

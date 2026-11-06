@@ -182,6 +182,27 @@ export class ObservationView {
   }
 
   /**
+   * 이 방의 최근 대화에서 여러 사람이 되풀이하는 화제 낱말. 관심사 목록에 없는 일상 화제도 잡으려고 낱말 목록 없이 센다.
+   * 실측(18회차): 아침 거실에서 다섯 명이 돌아가며 "잠이 잘 안 왔어요" 이야기만 했다. 조사를 떼고, 서로 다른 화자 수로 판단한다.
+   */
+  echoedTopics(roomId: RoomId, window = 12, minSpeakers = 4): string[] {
+    const msgs = this.roomMessages(roomId, window, 4000).filter((m) => m.speakerId !== 'pd')
+    const speakersByStem = new Map<string, Set<string>>()
+    for (const m of msgs) {
+      for (const stem of new Set(stemsOf(m.text))) {
+        const set = speakersByStem.get(stem) ?? new Set<string>()
+        set.add(m.speakerId)
+        speakersByStem.set(stem, set)
+      }
+    }
+    return [...speakersByStem]
+      .filter(([, set]) => set.size >= minSpeakers)
+      .sort((a, b) => b[1].size - a[1].size)
+      .slice(0, 2)
+      .map(([stem]) => stem)
+  }
+
+  /**
    * 본인만 아는 일: 받은 익명 카드, 내가 보낸 카드, 우체통 질문과 답(game-rules.md §5.5, §6.1).
    * 보낸 사람을 모르는 카드는 보낸 사람을 쓰지 않는다. 이벤트에도 그 값이 없다.
    */
@@ -329,4 +350,13 @@ function relativeStageLabel(stage: StageId, current: StageId | null): string {
   const diff = today - meta.day
   const day = diff === 0 ? '오늘' : diff === 1 ? '어제' : diff === 2 ? '그저께' : `${meta.day}일차`
   return `${day} ${meta.label}`
+}
+
+const PARTICLE = /(이랑|에서|으로|하고|이에요|예요|이|가|은|는|을|를|도|만|에|로|와|과|랑|요)$/
+/** 화제 낱말이 아닌 말(대명사·부사·접속어 등). 화제 감지에서만 뺀다. */
+const NOT_TOPIC = new Set(['저', '제', '저희', '우리', '그', '이', '저것', '그거', '이거', '거', '것', '수', '때', '좀', '더', '너무', '정말', '진짜', '오늘', '그럼', '그런', '이런', '혹시', '아니', '네', '아', '음', '그냥', '조금', '많이', '같이', '다들', '사람', '얘기', '이야기', '생각', '느낌', '편'])
+
+/** 한글 낱말에서 조사를 뗀 줄기들. */
+function stemsOf(text: string): string[] {
+  return (text.match(/[가-힣]{2,}/g) ?? []).map((w) => w.replace(PARTICLE, '')).filter((w) => w.length >= 1 && !NOT_TOPIC.has(w))
 }

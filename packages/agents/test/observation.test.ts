@@ -89,6 +89,14 @@ describe('ObservationView isolation', () => {
     expect(dialogueTask.retryHint?.(['repetition'], null)).not.toContain('걸린 문장')
   })
 
+  it('detects an everyday topic echoed by many speakers without a word list', () => {
+    const s = setup()
+    for (const id of ['a', 'b', 'c', 'd']) push(s, { type: 'MEMBER_JOINED', payload: { roomId: 'living', participantId: id }, visibility: { kind: 'room' } })
+    const lines: [string, string][] = [['a', '어제 잠이 잘 안 왔어요'], ['b', '저도 잠도 못 잤어요'], ['c', '잠이 안 오면 힘들죠'], ['d', '잠을 좀 더 자고 싶네요']]
+    for (const [who, text] of lines) push(s, { type: 'MESSAGE_SENT', actor: who, payload: { roomId: 'living', text, background: false }, visibility: { kind: 'room' } })
+    expect(new ObservationView(s, 'a', defaultConfig).echoedTopics('living')).toEqual(['잠'])
+  })
+
   it('reports topics that keep coming up', () => {
     const s = setup()
     for (const id of ['a', 'b']) push(s, { type: 'MEMBER_JOINED', payload: { roomId: 'living', participantId: id }, visibility: { kind: 'room' } })
