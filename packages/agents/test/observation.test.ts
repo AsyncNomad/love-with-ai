@@ -83,6 +83,18 @@ describe('ObservationView isolation', () => {
     expect('value' in intro).toBe(true)
   })
 
+  it('salvages a reply by dropping only the offending sentence', () => {
+    const s = setup()
+    for (const id of ['a', 'b']) push(s, { type: 'MEMBER_JOINED', payload: { roomId: 'living', participantId: id }, visibility: { kind: 'room' } })
+    const ctx = { state: s, config: defaultConfig }
+    const input = { speakerId: 'a', roomId: 'living', mode: 'reply' as const, isPrivate: false }
+    const built = dialogueTask.build(input, ctx)
+    const mixed = dialogueTask.finish({ action: 'speak', text: '아, 그거 재밌겠어. 저도 한번 가 보고 싶어요.' }, input, ctx, built)
+    expect('value' in mixed && mixed.value.text).toBe('저도 한번 가 보고 싶어요.')
+    const allCasual = dialogueTask.finish({ action: 'speak', text: '그거 재밌겠다. 나도 가 볼래.' }, input, ctx, built)
+    expect('issues' in allCasual && allCasual.issues).toContain('speech_level')
+  })
+
   it('retry hints quote the rejected sentence without suggesting new wording', () => {
     const hint = dialogueTask.retryHint?.(['speech_level'], { action: 'speak', text: '반가워요. 나도 그거 좋아해.' }) ?? ''
     expect(hint).toContain('"나도 그거 좋아해."')

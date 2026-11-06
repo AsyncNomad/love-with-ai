@@ -16,6 +16,8 @@ import {
   hasEmoji,
   hasParticleError,
   hasCasualWord,
+  hasEnglishWord,
+  hasForeignScript,
   hasSelfHonorific,
   isCasual,
   limitLaughter,
@@ -50,6 +52,9 @@ const INSTRUCTIONS: Record<DialogueMode, string> = {
   propose_casual: '이 사람과 이야기가 꽤 편해졌다.',
   wrap_up: '대화 시간이 곧 끝난다. 새 화제를 꺼내지 말고 자연스럽게 마무리하는 말을 해라.',
 }
+
+/** 문장 하나만 지우면 해결되는 문제(반말, 높임, 조사, 호칭, 외국 문자, 상투 표현). 반복·대리 발언 같은 문제는 통째로 다시 쓴다. */
+const SENTENCE_LOCAL = new Set(['speech_level', 'self_honorific', 'grammar', 'address', 'foreign_script', 'stock_phrase'])
 
 /** 소형 모델이 돌려 쓰는 상투적 표현(감지용, 실측). 최근 대화에 여러 번 나왔는데 또 쓰면 다시 쓰게 한다. */
 const STOCK_PHRASES = ['오늘 하루', '편안하', '분위기', '시간이 빨리', '기억에 남', '다행']
@@ -192,30 +197,37 @@ export const dialogueTask: TaskSpec<DialogueInput, { action: 'speak' | 'silent';
     const normalized = lastOwn && hasEmoji(lastOwn) ? stripEmoji(timed) : timed
     if (normalized.length === 0) return { value: { text: null } }
     const fitted = fitLength(normalized, maxChars) ?? normalized
-    const issues = checkDialogue(
-      {
-        text: fitted,
-        speakerName,
-        maxChars,
-        unknownNames: view.unknownNames(),
-        recentOwn: view.ownRecentMessages(ctx.config.validation.repetitionWindow),
-        mustBePolite,
-        knownNames,
-      },
-      ctx.config.validation,
-    )
-    // 실측: 기억 요약 문장을 대사로 옮겨 "송건우 씨는 …, 김하린과 여행 이야기를 나누며 …"처럼 자기를 3인칭으로 해설했다.
-    // 인사·자기소개가 아닌데 자기 전체 이름이 나오면 해설로 보고 다시 쓰게 한다.
-    // "저 김하린입니다"(자기소개)는 괜찮고, "김하린과 …", "김하린은 …"처럼 3인칭 조사가 붙으면 해설이다.
-    if (hasSelfHonorific(fitted)) issues.push('self_honorific')
-    if (hasParticleError(fitted)) issues.push('grammar')
-    if ((mustBePolite && hasBareNameAddress(fitted, knownNames)) || hasFullNameHonorific(fitted, knownNames)) issues.push('address')
-    // 방 전체에서 흔해진 표현을 누가 쓰든 거부하면 너무 엄격했다(실측: 거부 16건, 생성 실패 증가).
-    // 방에서 되풀이되고 있고, 이 사람도 최근에 이미 쓴 표현을 또 쓸 때만 다시 쓰게 한다(감지·거부만 한다, qa-rules.md 2).
     const worn = view.wornTopics(STOCK_PHRASES, 30, 3)
     const ownRecent = view.ownRecentMessages(5)
-    if (worn.some((p) => fitted.includes(p) && ownRecent.some((t) => t.includes(p)))) issues.push('stock_phrase')
-    if (speakerName.length > 0 && new RegExp(`${speakerName}(과|와|은|는|이가|의|을|를|에게|한테|씨)`).test(fitted)) issues.push('self_third_person')
+    const recentOwn = view.ownRecentMessages(ctx.config.validation.repetitionWindow)
+    const unknownNames = view.unknownNames()
+    // 문장 하나만 보고 판단할 수 있는 문제. 이런 문제만 있으면 그 문장만 지우고 나머지를 살린다(아래 salvage).
+    const badSentence = (t: string): boolean =>
+      (mustBePolite && (isCasual(t) || hasCasualWord(t, knownNames))) ||
+      hasSelfHonorific(t) ||
+      hasParticleError(t) ||
+      (mustBePolite && hasBareNameAddress(t, knownNames)) ||
+      hasFullNameHonorific(t, knownNames) ||
+      hasForeignScript(t) ||
+      hasEnglishWord(t, knownNames) ||
+      // 방 전체에서 흔해진 표현을 누가 쓰든 거부하면 너무 엄격했다(실측: 거부 16건). 이 사람도 최근에 이미 쓴 표현을 또 쓸 때만 문제로 본다.
+      worn.some((p) => t.includes(p) && ownRecent.some((o) => o.includes(p)))
+    const inspect = (t: string): string[] => {
+      const found: string[] = checkDialogue({ text: t, speakerName, maxChars, unknownNames, recentOwn, mustBePolite, knownNames }, ctx.config.validation)
+      if (hasSelfHonorific(t)) found.push('self_honorific')
+      if (hasParticleError(t)) found.push('grammar')
+      if ((mustBePolite && hasBareNameAddress(t, knownNames)) || hasFullNameHonorific(t, knownNames)) found.push('address')
+      if (worn.some((p) => t.includes(p) && ownRecent.some((o) => o.includes(p)))) found.push('stock_phrase')
+      // 기억 요약 문장을 대사로 옮겨 자기를 3인칭으로 해설했다(실측). "저 김하린입니다"(자기소개)는 괜찮고, 3인칭 조사가 붙으면 해설이다.
+      if (speakerName.length > 0 && new RegExp(`${speakerName}(과|와|은|는|이가|의|을|를|에게|한테|씨)`).test(t)) found.push('self_third_person')
+      return found
+    }
+    const issues = inspect(fitted)
+    if (issues.length > 0 && issues.every((x) => SENTENCE_LOCAL.has(x))) {
+      // 걸린 문장만 지우고 나머지가 말이 되면 쓴다(지우기는 허용, qa-rules.md 1.3). 통째로 다시 쓰다가 침묵이 되는 대사가 많았다(실측 19회차: 최종 생성 실패 29건).
+      const kept = sentencesOf(fitted).filter((t) => !badSentence(t)).join(' ')
+      if (kept.replace(/\s/g, '').length >= 8 && inspect(kept).length === 0) return { value: { text: kept } }
+    }
     return issues.length > 0 ? { issues } : { value: { text: fitted } }
   },
 }
