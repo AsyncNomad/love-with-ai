@@ -51,8 +51,10 @@ function speechNote(view: ObservationView, roomId: RoomId): string {
   const others = view.presentOthers(roomId)
   if (others.length === 0) return ''
   const casual = others.filter((id) => view.speechLevel(id) === 'casual')
+  const agreed = view.speechAgreedHere(roomId).filter((id) => others.includes(id))
+  const justNow = agreed.length > 0 ? `\n방금 ${agreed.map((id) => view.label(id)).join(', ')}에게 말을 놓기로 했다. 이제 그 사람에게는 반말로 이야기한다` : ''
+  if (casual.length === others.length && casual.length > 0) return `\n말투: 여기 있는 사람 모두에게 말을 놓은 사이다${justNow}`
   if (casual.length === 0) return '\n말투: 여기 있는 사람 모두에게 아직 존댓말을 쓰는 사이다'
-  if (casual.length === others.length) return '\n말투: 여기 있는 사람 모두에게 말을 놓은 사이다'
   // 존댓말 상대가 한 명이라도 있으면 모두에게 하는 말은 존댓말이다(game-rules.md §11.6).
   return `\n말투: ${casual.map((id) => view.label(id)).join(', ')}에게는 말을 놓았지만, 존댓말을 쓰는 사람도 함께 있어서 모두에게 하는 말은 존댓말로 한다`
 }

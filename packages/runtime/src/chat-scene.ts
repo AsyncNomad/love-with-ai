@@ -277,8 +277,7 @@ export class ChatScene {
     this.proposedInScene = true
     // 실제로 말 놓기 제안이었는지 확인한다. 실측(15회차): "잠이 안 오시면 천천히 쉬는 시간이라도…"를 제안으로 기록했다.
     // 대화와 상태가 어긋나면 안 되므로, 제안으로 읽히지 않으면 기록하지 않고 한 번 더 기회를 준다.
-    const heard = await agents.judgeSpeechOffer(said, [pick.targetId])
-    if (heard?.targetId !== pick.targetId) {
+    if (!(await agents.verifySpeechOffer(said))) {
       this.proposalAttempts++
       if (this.proposalAttempts < 2) this.proposedInScene = false
       return

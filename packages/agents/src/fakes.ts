@@ -101,6 +101,7 @@ export const fakeResponders: Record<string, FakeResponder> = {
   },
   human_speech: (req) => {
     if (req.meta.mode === 'answer') return { answer: 'accept' }
+    if (req.meta.mode === 'verify') return { offer: true }
     const said = req.messages.at(-1)?.content ?? ''
     const target = enumAt(req.jsonSchema, ['properties', 'target'])[1]
     return (said.includes('편하게') || said.includes('말을 놓')) && target ? { target, kind: 'mutual' } : { target: '없음', kind: 'none' }

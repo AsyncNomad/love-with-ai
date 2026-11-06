@@ -88,8 +88,11 @@ export const speechResponseTask: TaskSpec<SpeechResponseInput, { answer: string;
 const NONE = '없음'
 
 export interface HumanSpeechInput {
-  /** offer: 사람이 누군가에게 말 놓기를 제안했는지. answer: AI의 제안에 사람이 어떻게 대답했는지. */
-  mode: 'offer' | 'answer'
+  /**
+   * offer: 사람이 누군가에게 말 놓기를 제안했는지(대상도 고른다). answer: AI의 제안에 사람이 어떻게 대답했는지.
+   * verify: 대상이 정해진 말(AI가 제안하려고 한 말)이 말 놓기 제안·권유인지 예/아니오로만 본다.
+   */
+  mode: 'offer' | 'answer' | 'verify'
   text: string
   /** offer일 때 제안 대상 후보(그 방의 AI) */
   candidateIds: ParticipantId[]
@@ -97,19 +100,24 @@ export interface HumanSpeechInput {
   proposal?: { proposerId: ParticipantId; kind: SpeechProposalKind; said: string }
 }
 
-export type HumanSpeechOutput = { kind: 'offer'; targetId: ParticipantId; offer: SpeechProposalKind } | { kind: 'answer'; answer: SpeechAnswer } | { kind: 'none' }
+export type HumanSpeechOutput =
+  | { kind: 'offer'; targetId: ParticipantId; offer: SpeechProposalKind }
+  | { kind: 'answer'; answer: SpeechAnswer }
+  | { kind: 'verified'; isOffer: boolean }
+  | { kind: 'none' }
 
 /**
  * 사람의 말을 읽는 판정 작업. 서버 쪽 판단이라 참가자 시점이 아니다(ownerOf null). 판정할 문장과 후보 이름만 넣는다.
  * 불확실하면 none을 돌려 아무것도 바꾸지 않는다(game-rules.md §11.5).
  */
-export const humanSpeechTask: TaskSpec<HumanSpeechInput, { target?: string; kind?: string; answer?: string }, HumanSpeechOutput> = {
+export const humanSpeechTask: TaskSpec<HumanSpeechInput, { target?: string; kind?: string; answer?: string; offer?: boolean }, HumanSpeechOutput> = {
   id: 'human_speech',
   ownerOf: () => null,
   sampling: (ctx) => ctx.config.llm.judgement,
   maxTokens: () => 60,
   schema: (i, ctx) => {
     if (i.mode === 'answer') return z.object({ answer: z.enum(['accept', 'you_only', 'decline', 'unclear']) })
+    if (i.mode === 'verify') return z.object({ offer: z.boolean() })
     const names = i.candidateIds.map((id) => ctx.state.participants.get(id)?.cast.name ?? id)
     return z.object({ target: z.enum([NONE, ...names] as [string, ...string[]]), kind: z.enum(['mutual', 'ask', 'grant', 'none']) })
   },
@@ -121,11 +129,17 @@ export const humanSpeechTask: TaskSpec<HumanSpeechInput, { target?: string; kind
       const user = `[제안] ${name(i.proposal.proposerId)}이(가) ${KIND_TEXT[i.proposal.kind]}는 뜻으로 이렇게 말했다.\n<제안>\n${i.proposal.said}\n</제안>\n[바로 다음에 온 대답]\n<대답>\n${i.text}\n</대답>\n\n대답이 이 제안에 대해 분명히 좋다고 한 것이면 accept, 상대만 편하게 하라고 한 것이면 you_only, 분명히 거절한 것이면 decline. 제안과 상관없는 말이거나 판단할 수 없으면 unclear.`
       return { system, user, view: null, meta: { mode: 'answer' } }
     }
+    if (i.mode === 'verify') {
+      // 실측(16회차): 대상을 고르게 하면 이름이 문장에 없을 때 "반말 하죠?" 같은 분명한 제안도 대상 없음으로 떨어졌다. 대상은 이미 정해져 있다.
+      const user = `[말]\n${i.text}\n\n이 말이 대화 상대에게 존댓말을 그만 쓰고 말을 놓자는(반말을 하자는) 제안이나, 말을 놓으라는 권유, 또는 말을 놓아도 되는지 묻는 말이면 offer를 true로. 그런 뜻이 아니면 false.`
+      return { system, user, view: null, meta: { mode: 'verify' } }
+    }
     const names = i.candidateIds.map(name).join(', ')
     const user = `[대화 상대] ${names}\n[말]\n${i.text}\n\n이 말이 누군가에게 말을 편하게 하자는 제안이면 target에 그 사람, kind에 mutual(서로 말을 놓자)·ask(자기가 말을 놓아도 되냐)·grant(상대에게 말을 놓으라) 중 하나. 그런 제안이 아니거나 대상을 알 수 없으면 target은 "${NONE}", kind는 none.`
     return { system, user, view: null, meta: { mode: 'offer' } }
   },
   finish: (raw, i, ctx) => {
+    if (i.mode === 'verify') return { value: { kind: 'verified', isOffer: raw.offer === true } }
     if (i.mode === 'answer') {
       const a = raw.answer
       return { value: a === 'accept' || a === 'you_only' || a === 'decline' ? { kind: 'answer', answer: a } : { kind: 'none' } }

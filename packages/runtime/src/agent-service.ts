@@ -173,6 +173,12 @@ export class AgentService {
     return v?.kind === 'offer' ? { targetId: v.targetId, offer: v.offer } : null
   }
 
+  /** AI가 제안하려고 한 말이 실제로 말 놓기 제안·권유로 읽히는지(대상은 정해져 있다). */
+  async verifySpeechOffer(text: string): Promise<boolean> {
+    const res = await this.exec(humanSpeechTask, { mode: 'verify', text, candidateIds: [] }, Priority.P1_SCENE)
+    return res.ok && res.value.kind === 'verified' && res.value.isOffer
+  }
+
   /** AI의 제안에 대한 사람의 대답을 읽는다. 불확실하면 none. */
   async judgeHumanAnswer(text: string, proposerId: ParticipantId, kind: SpeechProposalKind, said: string): Promise<SpeechAnswer> {
     const res = await this.exec(humanSpeechTask, { mode: 'answer', text, candidateIds: [], proposal: { proposerId, kind, said } }, Priority.P1_SCENE)

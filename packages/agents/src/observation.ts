@@ -264,6 +264,24 @@ export class ObservationView {
     return speechLevelOf(this.state, this.ownerId, targetId)
   }
 
+  /**
+   * 이 방에서 나와 말 놓기에 합의한 사람(받아들임·상대만 놓기). 합의 직후에도 존댓말로 "저도 반말로 하기로 해요"라고 말하던 것을
+   * 막으려고, 방금 말을 놓았다는 사실을 알려 주는 데 쓴다(실측 16회차). 근거는 그 방의 SPEECH_ANSWERED 이벤트다.
+   */
+  speechAgreedHere(roomId: RoomId): ParticipantId[] {
+    const out: ParticipantId[] = []
+    for (const e of this.observed()) {
+      if (e.type !== 'SPEECH_ANSWERED' || e.payload.roomId !== roomId) continue
+      if (e.payload.answer !== 'accept' && e.payload.answer !== 'you_only') continue
+      const other = e.payload.fromId === this.ownerId ? e.payload.toId : e.payload.toId === this.ownerId ? e.payload.fromId : null
+      if (other && this.speechLevel(other) === 'casual') {
+        this.touched.add(e.seq)
+        out.push(other)
+      }
+    }
+    return out
+  }
+
   /** 이 사람이 나에게 쓰는 말투. */
   speechLevelFrom(targetId: ParticipantId): SpeechLevel {
     return speechLevelOf(this.state, targetId, this.ownerId)
